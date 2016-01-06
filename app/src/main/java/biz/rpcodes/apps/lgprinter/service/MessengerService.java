@@ -211,7 +211,7 @@ public class MessengerService extends Service {
                     // String mFileName = (String) msg.obj;
                     Bundle bund = msg.getData();
                     String mFileName = bund.getString("filepath");
-                    if (isPrinting){
+                    if (isPrinting){ // Make sure we aren't already printing
                         ; // TODO: Indicate that the printer is busy
                     } else {
                         if ( mFileName == null){
