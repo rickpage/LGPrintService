@@ -299,7 +299,7 @@ public class MessengerService extends Service {
                             svc().mLGFileTransfer.stopTransfer();
                             svc().mLGFileTransfer = null;
                         }
-                        
+
 
                         sendPrintJobStatus();
                     } else {
