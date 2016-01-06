@@ -96,6 +96,7 @@ public class MessengerService extends Service {
      */
     static class IncomingHandler extends Handler {
         private static final String TAG = "LGPrintMsgHandler";
+        private static final long CHECK_DELAY_MS = 3000;
         private boolean mStarted;
         WeakReference<MessengerService> mService;
 
@@ -212,10 +213,10 @@ public class MessengerService extends Service {
                     Bundle bund = msg.getData();
                     String mFileName = bund.getString("filepath");
                     if (isPrinting){ // Make sure we aren't already printing
-                        ; // TODO: Indicate that the printer is busy
+                        Log.e("PRINTREQUEST", "Already printing, wait until job complete.");
                     } else {
                         if ( mFileName == null){
-                            Log.e(TAG, "mFileName is null");
+                            Log.e("PRINTREQUEST", "mFileName is null");
                             // break;
                         } else {
                             Log.i(TAG, "PRINT isPrinting TRUE, Printing " + mFileName);
@@ -310,7 +311,7 @@ public class MessengerService extends Service {
                         }
                         sendPrinterStatusMessage();
                     }
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), 1000);
+                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
 
                     break;
 
@@ -347,7 +348,7 @@ public class MessengerService extends Service {
 
                         mIsChecking = true;
                     } else if ( isPrinting ){
-                        mIsChecking = false;
+                        // mIsChecking = false;
 
                     } else if (svc().mCheckLG == null) {
 
@@ -403,7 +404,7 @@ public class MessengerService extends Service {
                     }
                     // this doesnt mean we left the area, so dont set disconnected
                     this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), 1000);
+                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
 
                     break;
 
@@ -441,7 +442,7 @@ public class MessengerService extends Service {
                     }
 
                     this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), 1000);
+                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
 
                     break;
                 // END LG

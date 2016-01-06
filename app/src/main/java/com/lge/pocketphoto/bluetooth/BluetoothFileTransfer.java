@@ -44,8 +44,10 @@ public class BluetoothFileTransfer{
 
 	public void stopTransfer()
 	{
-		if(mtrans != null)
+		if(mtrans != null) {
 			mtrans.stopSession();
+			mtrans.cancelTransfer();
+		}
 	}
 
 	public void startTransfer(boolean bPaired) {	
