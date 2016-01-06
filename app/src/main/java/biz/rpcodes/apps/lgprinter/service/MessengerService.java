@@ -279,6 +279,10 @@ public class MessengerService extends Service {
                     // if we are trying to print, send failure
                     // otherwise, send connection status and try again
 
+                    removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                    removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+
+
                     mIsChecking = false;
                     if (isPrinting){
 
@@ -297,7 +301,6 @@ public class MessengerService extends Service {
                         }
                         sendPrinterStatusMessage();
                     }
-                    removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
                     this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), 1000);
 
                     break;
@@ -367,6 +370,14 @@ public class MessengerService extends Service {
                         isPrinting = false;
                         Log.d(TAG, "isPrinting FALSE");
 
+                        // Destroy LG print thread
+                        if ( null != svc().mLGFileTransfer){
+                            Log.i(TAG, "Stopping LG print image thread");
+                            svc().mLGFileTransfer.cancelBT_Connecting();
+                            svc().mLGFileTransfer.stopTransfer();
+                            svc().mLGFileTransfer = null;
+                        }
+
                         mIsLastPrintJobSuccessful = false;
                         sendPrintJobStatus();
                     } else {
@@ -411,6 +422,14 @@ public class MessengerService extends Service {
                     isPrinting = false;
                     Log.d(TAG, "isPrinting FALSE");
                     sendPrintJobStatus();
+
+                    // Destroy LG print thread
+                    if ( null != svc().mLGFileTransfer){
+                        Log.i(TAG, "Stopping LG print image thread");
+                        svc().mLGFileTransfer.cancelBT_Connecting();
+                        svc().mLGFileTransfer.stopTransfer();
+                        svc().mLGFileTransfer = null;
+                    }
 
                     this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
                     this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), 1000);
