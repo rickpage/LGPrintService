@@ -94,6 +94,9 @@ public class CheckLGConnection {
 		mBatchs.add(newBatch);
 
 		try {
+			if ( mtrans != null ){
+				mtrans.cancelTransfer();
+			}
 			mtrans = new OppTransferForConnectOnly(mContext, mPowerManager, newBatch, mHandler, bPaired);
 			mtrans.start();
 		} catch (Exception e) {

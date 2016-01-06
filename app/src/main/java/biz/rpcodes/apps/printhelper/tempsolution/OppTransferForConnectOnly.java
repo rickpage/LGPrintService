@@ -112,7 +112,7 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 
 		if (mHandlerThread == null) {
 
-			mHandlerThread = new HandlerThread("BtOpp Transfer Handler", 5);
+			mHandlerThread = new HandlerThread("ConnectOnly", 5);
 			mHandlerThread.start();
 			execute();
 		}
