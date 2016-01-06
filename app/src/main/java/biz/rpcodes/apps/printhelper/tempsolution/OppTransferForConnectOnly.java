@@ -21,6 +21,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
+import android.util.Log;
 
 public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> implements BluetoothOppBatch.BluetoothOppBatchListener {
 	
@@ -402,6 +403,7 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
     }
 
 	private class SocketConnectThread extends Thread {
+		private static final String TAG = "SocketConnect";
 		private final String host;
 
 		private final BluetoothDevice device;
@@ -559,7 +561,12 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 
 			}
 
-			mSessionHandler.obtainMessage(RFCOMM_ERROR).sendToTarget();
+			try {
+				mSessionHandler.obtainMessage(RFCOMM_ERROR).sendToTarget();
+			}
+			catch (IllegalStateException e){
+				Log.e(TAG, e.getMessage());
+			}
 			return;
 		}
 	};
@@ -659,7 +666,8 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 	protected Void doInBackground(Void... params) {
 
 		try {
-			mSessionHandler = new EventHandler(mHandlerThread.getLooper());
+			if(mHandlerThread != null)
+				mSessionHandler = new EventHandler(mHandlerThread.getLooper());
 			startConnectSession();
 		} catch (Exception e) {
 			e.printStackTrace();

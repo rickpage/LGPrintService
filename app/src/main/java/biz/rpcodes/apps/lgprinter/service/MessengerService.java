@@ -119,6 +119,7 @@ public class MessengerService extends Service {
         private int mErrorCode = 0 ; // 0 is undefined error
         private boolean isWaitingToPrint = false;
         private boolean mFirstTime = true;
+        private boolean mIsChecking =  false;
 
 
         public IncomingHandler(MessengerService s){
@@ -217,7 +218,7 @@ public class MessengerService extends Service {
                             Log.e(TAG, "mFileName is null");
                             // break;
                         } else {
-                            Log.i(TAG, "isPrinting TRUE, Printing " + mFileName);
+                            Log.i(TAG, "PRINT isPrinting TRUE, Printing " + mFileName);
 
                             isPrinting = true;
 //                            isWaitingToPrint = true;
@@ -248,6 +249,7 @@ public class MessengerService extends Service {
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
                     // CHECK START SUCCESS
                     // Print START SUCCESS
+                    mIsChecking = false;
                     if ( false == isPrinting) {
                         if ( false == mIsConnected || mFirstTime ) {
                             mFirstTime = false;
@@ -262,6 +264,7 @@ public class MessengerService extends Service {
                     }
                     break;
                 case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
+                    mIsChecking = false;
                     // CHECK FAILURE/INTERRUPT
                     // We were interupted, but dont change connection, because
                     // we generally interupt when we are ready to print
@@ -275,6 +278,8 @@ public class MessengerService extends Service {
                     // Automatically retry?
                     // if we are trying to print, send failure
                     // otherwise, send connection status and try again
+
+                    mIsChecking = false;
                     if (isPrinting){
 
                         mIsConnected = false;
@@ -301,7 +306,9 @@ public class MessengerService extends Service {
 
 
                     Log.i(TAG, "BT RETRY FOR CONNECTION " +
-                            " Connected " + mIsConnected
+                                    " this " + this
+                            + " checking? " + mIsChecking
+                             + " Connected " + mIsConnected
                             + " clients " + svc().getClients().size()
                             + " mCheckLG " +
                             (svc().mCheckLG != null ?
@@ -315,7 +322,7 @@ public class MessengerService extends Service {
 
                     // If one is running already, stop it so we don't get
                     // a ton of them trying to connect
-                    if ( svc().mCheckLG != null){
+                    if ( svc().mCheckLG != null && mIsChecking == false){
 //                        try {
 //                            Thread.sleep(30000);
 //                        } catch (InterruptedException e) {
@@ -326,14 +333,17 @@ public class MessengerService extends Service {
                         // this ALso starts check tranfer
                         svc().mCheckLG.getPairedDevices();
 
-                    } else if ( isPrinting){
-                        ;
+                        mIsChecking = true;
+                    } else if ( isPrinting ){
+                        mIsChecking = false;
 
                     } else if (svc().mCheckLG == null) {
 
                         svc().mCheckLG = new CheckLGConnection((Context) svc(), this);
                         // This ALSO starts the transfer
                         svc().mCheckLG.getPairedDevices();
+
+                        mIsChecking = true;
                     }
                     break;
 
@@ -350,6 +360,7 @@ public class MessengerService extends Service {
 
                     // if we try to print and we get this,
                     // we will be marked false.
+                    mIsChecking = false;
                     if (isPrinting){
                         // isPrinting set by first client who tries
                         // to print.
@@ -424,7 +435,7 @@ public class MessengerService extends Service {
         mMessenger = new Messenger(mHandler);
         // Kick off processing
         //if (mClients.size() == 0 || mCheckLG == null && mLGFileTransfer == null) {
-            Log.i(TAG, "Initializing check thread");
+            Log.i(TAG, "START Initializing check thread");
             mHandler.obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION).sendToTarget();
         //}
     }

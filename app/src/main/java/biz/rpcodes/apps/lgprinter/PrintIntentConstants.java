@@ -28,9 +28,6 @@ package biz.rpcodes.apps.lgprinter;
  *  Created by Pagga on 11/21/2015.
  */
 public class PrintIntentConstants {
-    public final static String start_service = "biz.rpcodes.apps.lgprinter.MONITOR_PRINTER";
-
-    public final static String request_print_job = "biz.rpcodes.apps.lgprinter.START_PRINTING";
     /**
      * Command to the service to register a client, receiving callbacks
      * from the service.  The Message's replyTo field must be a Messenger of

@@ -59,7 +59,7 @@ public class InstalledNotify extends ActionBarActivity {
             // unexpectedly disconnected -- that is, its process crashed.
             mService = null;
             mIsAttached = false;
-Log.i("NOTOK", "NOTOK");
+            Log.i("NOTOK", "NOTOK");
         }
     };
 
@@ -80,6 +80,41 @@ Log.i("NOTOK", "NOTOK");
                     , "LG Print Service Not Installed!"
                     , Toast.LENGTH_SHORT);
         }
+    }
+
+
+    /**
+     * Stop listening for printer.
+     */
+    void unbindMonitorPrinterService() {
+       // if (mIsBound) {
+
+            // If we have received the service, and hence registered with
+            // it, then now is the time to unregister.
+            if (mService != null) {
+                try {
+                    Message msg = Message.obtain(null,
+                            PrintIntentConstants.MSG_UNREGISTER_CLIENT);
+                    msg.replyTo = mMessenger;
+                    mService.send(msg);
+                } catch (RemoteException e) {
+                    // There is nothing special we need to do if the service
+                    // has crashed.
+                }
+            }
+            if ( mConnection != null && mIsAttached) {
+                // Detach our existing connection.
+                unbindService(mConnection);
+            }
+           // mIsBound = false;
+            // mCallbackText.setText("Unbinding.");
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();  // Always call the superclass method first
+
+        // unbindMonitorPrinterService();
     }
 
     @Override
