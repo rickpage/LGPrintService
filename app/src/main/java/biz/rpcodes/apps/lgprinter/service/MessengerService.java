@@ -292,6 +292,15 @@ public class MessengerService extends Service {
                         Log.d(TAG, "isPrinting FALSE");
 
                         mIsLastPrintJobSuccessful = false;
+                        // Destroy LG print thread
+                        if ( null != svc().mLGFileTransfer){
+                            Log.i(TAG, "Stopping LG print image thread");
+                            svc().mLGFileTransfer.cancelBT_Connecting();
+                            svc().mLGFileTransfer.stopTransfer();
+                            svc().mLGFileTransfer = null;
+                        }
+                        
+
                         sendPrintJobStatus();
                     } else {
                         if ( mIsConnected || mFirstTime ){

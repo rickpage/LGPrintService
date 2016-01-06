@@ -95,9 +95,13 @@ public class CheckLGConnection {
 
 		try {
 			if ( mtrans != null ){
+				mtrans.stopSession();
 				mtrans.cancelTransfer();
+				mtrans = null;
 			}
+
 			mtrans = new OppTransferForConnectOnly(mContext, mPowerManager, newBatch, mHandler, bPaired);
+
 			mtrans.start();
 		} catch (Exception e) {
 			e.printStackTrace();

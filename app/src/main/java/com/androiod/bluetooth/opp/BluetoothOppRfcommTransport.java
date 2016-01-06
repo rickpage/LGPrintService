@@ -43,6 +43,7 @@ import javax.obex.*;
 import com.lge.pocketphoto.bluetooth.*;
 
 import android.bluetooth.BluetoothSocket;
+import android.util.Log;
 
 public class BluetoothOppRfcommTransport implements ObexTransport {
 
@@ -58,7 +59,8 @@ public class BluetoothOppRfcommTransport implements ObexTransport {
         try {
 			Thread.sleep(500);
 		} catch (InterruptedException e) {
-			e.printStackTrace();
+			// e.printStackTrace();
+            Log.v("BTOppRfcTx", "mSocket.close(); thread.sleep: " + e.getMessage());
 		}
     }
 
