@@ -285,25 +285,26 @@ public class MessengerService extends Service {
 
 
                     mIsChecking = false;
-                    if (isPrinting){
-
-                        mIsConnected = false;
-
-                        isPrinting = false;
-                        Log.d(TAG, "isPrinting FALSE");
-
-                        mIsLastPrintJobSuccessful = false;
-                        // Destroy LG print thread
-                        if ( null != svc().mLGFileTransfer){
-                            Log.i(TAG, "Stopping LG print image thread");
-                            svc().mLGFileTransfer.cancelBT_Connecting();
-                            svc().mLGFileTransfer.stopTransfer();
-                            svc().mLGFileTransfer = null;
-                        }
-
-
-                        sendPrintJobStatus();
-                    } else {
+//                    if (isPrinting) {
+//
+//                        mIsConnected = false;
+//
+//                        isPrinting = false;
+//                        Log.d(TAG, "isPrinting FALSE");
+//
+//                        mIsLastPrintJobSuccessful = false;
+//                        // Destroy LG print thread
+//                        if ( null != svc().mLGFileTransfer){
+//                            Log.i(TAG, "Stopping LG print image thread");
+//                            svc().mLGFileTransfer.cancelBT_Connecting();
+//                            svc().mLGFileTransfer.stopTransfer();
+//                            svc().mLGFileTransfer = null;
+//                        }
+//
+//
+//                        sendPrintJobStatus();
+//                    } else {
+                    if(!isPrinting){
                         if ( mIsConnected || mFirstTime ){
                             mFirstTime = false;
                             mIsConnected = false;
@@ -333,9 +334,13 @@ public class MessengerService extends Service {
                     // the thread. Do not alter the mIsConnected here,
                     // only in FAIL
 
-                    // If one is running already, stop it so we don't get
-                    // a ton of them trying to connect
-                    if ( svc().mCheckLG != null && mIsChecking == false){
+                    // If we succeed with a CHECK and we are already trying to print
+                    if ( isPrinting ){
+                        // mIsChecking = false;
+                        Log.v(TAG, "isPrinting TRUE However, we are in RETRY for connect.");
+                    }
+                    // If one CHECK running already, dont getPaired again
+                    else if ( svc().mCheckLG != null && mIsChecking == false){
 //                        try {
 //                            Thread.sleep(30000);
 //                        } catch (InterruptedException e) {
@@ -347,10 +352,8 @@ public class MessengerService extends Service {
                         svc().mCheckLG.getPairedDevices();
 
                         mIsChecking = true;
-                    } else if ( isPrinting ){
-                        // mIsChecking = false;
-
-                    } else if (svc().mCheckLG == null) {
+                        // If CHECK object is null, we need to use it to kick off the process
+                    } else if ( svc().mCheckLG == null ) {
 
                         svc().mCheckLG = new CheckLGConnection((Context) svc(), this);
                         // This ALSO starts the transfer

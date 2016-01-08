@@ -81,6 +81,12 @@ public class BluetoothFileTransfer{
 		mBatchs.add(newBatch);	
 
 		try {
+			if ( mtrans != null ){
+				mtrans.stopSession();
+				mtrans.cancelTransfer();
+				mtrans = null;
+			}
+
 			mtrans = new Opptransfer(mContext, mPowerManager, newBatch, mHandler, bPaired);
 			mtrans.start();
 		} catch (Exception e) {			
@@ -292,6 +298,8 @@ public class BluetoothFileTransfer{
 	{		
 		if(mtrans != null)
 			mtrans.stopConnect();
+
+
 	
 	}
 	

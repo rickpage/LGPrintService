@@ -153,6 +153,7 @@ public class Opptransfer extends AsyncTask<Void, Integer, Void> implements Bluet
 
 	public void stopSession()
 	{
+
 		if(mSession != null)
 			mSession.stop();
 		if ( mHandlerThread != null) {
