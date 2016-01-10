@@ -79,6 +79,10 @@ public class MessengerService extends Service {
     int mValue = 0;
 
     private ArrayList<Messenger> getClients(){
+        if ( mClients.size() == 0 ) {
+            Log.i(TAG, "Stopping service, 0 clients using this messenger service");
+            this.stopSelf();
+        }
         return mClients;
     }
 
@@ -97,6 +101,7 @@ public class MessengerService extends Service {
     static class IncomingHandler extends Handler {
         private static final String TAG = "LGPrintMsgHandler";
         private static final long CHECK_DELAY_MS = 3000;
+        private static final long PRINT_TIMEOUT_TRANSFER_MS = 4 * CHECK_DELAY_MS;
         private boolean mStarted;
         WeakReference<MessengerService> mService;
 
@@ -130,6 +135,9 @@ public class MessengerService extends Service {
         }
 
         public MessengerService svc(){
+
+
+
             return mService.get();
         }
 
@@ -182,6 +190,7 @@ public class MessengerService extends Service {
              * that they can use to update UI and Logic.
              *
              */
+
             switch (msg.what) {
                 case PrintIntentConstants.MSG_REGISTER_CLIENT:
                     if ( msg.replyTo == null ){
@@ -243,6 +252,10 @@ public class MessengerService extends Service {
                                     , null, imgUri, this);
                             // This ALSO starts the transfer
                             svc().mLGFileTransfer.getPairedDevices();
+
+                            // set a timeout, in case the printer shuts off and wew dont catch it
+                            /// (kicks off check lg again)
+                            this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_FAIL), PRINT_TIMEOUT_TRANSFER_MS);
                         }
                     }
                     break;
@@ -338,6 +351,7 @@ public class MessengerService extends Service {
                     if ( isPrinting ){
                         // mIsChecking = false;
                         Log.v(TAG, "isPrinting TRUE However, we are in RETRY for connect.");
+
                     }
                     // If one CHECK running already, dont getPaired again
                     else if ( svc().mCheckLG != null && mIsChecking == false){
@@ -365,6 +379,8 @@ public class MessengerService extends Service {
 
 
                 case Opptransfer.BLUETOOTH_SEND_FAIL:
+
+                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
                     // Check INTERUPTED?
                     // Print Job FAILURE
                     // This is for BOTH flows when there is RFCOMM ERROR
@@ -373,6 +389,8 @@ public class MessengerService extends Service {
 //                    sendFailState((int)msg.arg1);
                     //mLGFileTransfer = null;
 //                    if (mProgress!=null) mProgress.setProgress(0);
+
+                    // We might be here forprint timeout
 
                     // if we try to print and we get this,
                     // we will be marked false.
@@ -413,7 +431,9 @@ public class MessengerService extends Service {
 
                 // Sending image data via Bluetooth
                 case Opptransfer.BLUETOOTH_SEND_PACKET:
-                    // No need to update anything
+
+                    // We remove any send fails, which may be waiting
+                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
                     // mIsConnected = true;
                     int per = (int) ((msg.arg1 / (float) msg.arg2) * 100);
                     Log.i(TAG, "Print Job %" + String.valueOf(per));
@@ -421,6 +441,8 @@ public class MessengerService extends Service {
 
                 // Complete to send image data
                 case Opptransfer.BLUETOOTH_SEND_COMPLETE:
+
+                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
                     // Print Job SUCCESS COMPLETE
                     // WHen we are done successfully printing, alert
                     // the clients
