@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.Toast;
 
 import biz.rpcodes.apps.lgprinter.service.MessengerService;
@@ -62,6 +63,11 @@ public class InstalledNotify extends ActionBarActivity {
             Log.i("NOTOK", "NOTOK");
         }
     };
+
+    public void doQuit(View v){
+        unbindMonitorPrinterService();
+        finish();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

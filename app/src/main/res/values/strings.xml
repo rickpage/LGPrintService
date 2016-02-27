@@ -10,5 +10,5 @@
     <string name="hello_world">LG Print Service has been successfully installed.</string>
     <string name="action_settings">Print from LG</string>
     <string name="action_print_brother">Print from Brother</string>
-    <string name="title_activity_installed_notify">InstalledNotify</string>
+    <string name="title_activity_installed_notify">LG Printer Service</string>
 </resources>
