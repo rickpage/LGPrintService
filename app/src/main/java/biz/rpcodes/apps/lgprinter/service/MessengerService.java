@@ -37,6 +37,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.IllegalFormatException;
 
+import biz.rpcodes.apps.lgprinter.LGPrintHelper;
 import biz.rpcodes.apps.lgprinter.PrintIntentConstants;
 import biz.rpcodes.apps.lgprinter.R;
 import biz.rpcodes.apps.printhelper.tempsolution.CheckLGConnection;
@@ -99,6 +100,7 @@ public class MessengerService extends Service {
      * Handler of incoming messages from clients.
      */
     static class IncomingHandler extends Handler {
+        private static DebugStringManager debug;
         private static final String TAG = "LGPrintMsgHandler";
         private static final long CHECK_DELAY_MS = 3000;
         private static final long PRINT_TIMEOUT_TRANSFER_MS = 4 * CHECK_DELAY_MS;
@@ -132,12 +134,12 @@ public class MessengerService extends Service {
             Log.i(TAG, "New handler: " + this);
             mStarted = false;
             mService = new WeakReference<MessengerService>(s);
+            debug = new DebugStringManager();
+            debug.addString("New handler created, " + this
+                    + ", mClient size " + svc().getClients().size());
         }
 
         public MessengerService svc(){
-
-
-
             return mService.get();
         }
 
@@ -148,13 +150,14 @@ public class MessengerService extends Service {
         public void sendPrinterStatusMessage(){
             for (int i=svc().getClients().size()-1; i>=0; i--) {
                 try {
-                    svc().getClients().get(i).send(
-                            this.obtainMessage(PrintIntentConstants.MSG_RESPONSE_STATUS
-                                    , mIsConnected ?
-                                    PrintIntentConstants.AVAILABLE
-                                    : PrintIntentConstants.UNAVAILABLE
-                                    , mErrorCode)
-                    );
+                    Message m = this.obtainMessage(PrintIntentConstants.MSG_RESPONSE_STATUS
+                            , mIsConnected ?
+                            PrintIntentConstants.AVAILABLE
+                            : PrintIntentConstants.UNAVAILABLE
+                            , mErrorCode);
+                    // Increases counter, we only can send so many
+                    LGPrintHelper.setDebugString(m, debug.getDebugMessage());
+                    svc().getClients().get(i).send(m);
                 } catch (RemoteException e) {
                     // The client is dead.  Remove it from the list;
                     // we are going through the list from back to front
@@ -165,20 +168,26 @@ public class MessengerService extends Service {
         }
 
         private void sendPrintJobStatus() {
-            for (int i=svc().getClients().size()-1; i>=0; i--) {
-                try {
-                    svc().getClients().get(i).send(
-                            this.obtainMessage(PrintIntentConstants.MSG_RESPONSE_PRINT_JOB
-                                    , mIsLastPrintJobSuccessful ?
-                                    PrintIntentConstants.SUCCESS
-                                    : PrintIntentConstants.FAILURE
-                                    , mErrorCode
-                            ));
-                } catch (RemoteException e) {
-                    // The client is dead.  Remove it from the list;
-                    // we are going through the list from back to front
-                    // so this is safe to do inside the loop.
-                    mService.get().getClients().remove(i);
+            if ( null != svc() && svc().getClients() != null) {
+
+
+                for (int i = svc().getClients().size() - 1; i >= 0; i--) {
+                    try {
+                        Message m = this.obtainMessage(PrintIntentConstants.MSG_RESPONSE_PRINT_JOB
+                                , mIsLastPrintJobSuccessful ?
+                                        PrintIntentConstants.SUCCESS
+                                        : PrintIntentConstants.FAILURE
+                                , mErrorCode
+                        );
+                        // Increases counter, we only can send so many
+                        LGPrintHelper.setDebugString(m, debug.getDebugMessage());
+                        svc().getClients().get(i).send(m);
+                    } catch (RemoteException e) {
+                        // The client is dead.  Remove it from the list;
+                        // we are going through the list from back to front
+                        // so this is safe to do inside the loop.
+                        mService.get().getClients().remove(i);
+                    }
                 }
             }
         }
@@ -191,294 +200,342 @@ public class MessengerService extends Service {
              *
              */
 
-            switch (msg.what) {
-                case PrintIntentConstants.MSG_REGISTER_CLIENT:
-                    if ( msg.replyTo == null ){
-                        throw new IllegalStateException("Message to LG Print Service MUST include reply to address");
-                    }
-                    svc().getClients().add(msg.replyTo);
-//
-//                    Log.i(TAG, "STarted? " + mStarted);
-//                    // Assume the flow is already kicked off
-//                    // if we have more than one client
-//                    if ( !mStarted ){
-//                        Log.i(TAG, "V5 Starting connection checks");
-//                        mStarted = true;
-//                        mFirstTime = true;
-//                        this.sendMessage(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION));
-//                    }
-                    break;
-                case PrintIntentConstants.MSG_UNREGISTER_CLIENT:
-                    if ( msg.replyTo == null ){
-                        throw new IllegalStateException("Message to LG Print Service MUST include reply to address");
-                    }
-                    svc().getClients().remove(msg.replyTo);
+            // TODO: handle this differently
+            try {
+                switch (msg.what) {
+                    case PrintIntentConstants.MSG_REGISTER_CLIENT:
+                        if (msg.replyTo == null) {
+                            throw new IllegalStateException("Message to LG Print Service MUST include reply to address");
+                        }
+                        svc().getClients().add(msg.replyTo);
+                        //
+                        //                    Log.i(TAG, "STarted? " + mStarted);
+                        //                    // Assume the flow is already kicked off
+                        //                    // if we have more than one client
+                        //                    if ( !mStarted ){
+                        //                        Log.i(TAG, "V5 Starting connection checks");
+                        //                        mStarted = true;
+                        //                        mFirstTime = true;
+                        //                        this.sendMessage(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION));
+                        //                    }
+                        break;
+                    case PrintIntentConstants.MSG_UNREGISTER_CLIENT:
+                        if (msg.replyTo == null) {
+                            throw new IllegalStateException("Message to LG Print Service MUST include reply to address");
+                        }
+                        svc().getClients().remove(msg.replyTo);
 
-                    break;
-                // User Print
-                case PrintIntentConstants.MSG_REQUEST_PRINT_JOB:
-                    // get the  filepath
-                    // String mFileName = (String) msg.obj;
-                    Bundle bund = msg.getData();
-                    String mFileName = bund.getString("filepath");
-                    if (isPrinting){ // Make sure we aren't already printing
-                        Log.e("PRINTREQUEST", "Already printing, wait until job complete.");
-                    } else {
-                        if ( mFileName == null){
-                            Log.e("PRINTREQUEST", "mFileName is null");
-                            // break;
+                        break;
+                    // User Print
+                    case PrintIntentConstants.MSG_REQUEST_PRINT_JOB:
+                        // get the  filepath
+                        // String mFileName = (String) msg.obj;
+                        Bundle bund = msg.getData();
+                        String mFileName = bund.getString("filepath");
+                        if (isPrinting) { // Make sure we aren't already printing
+                            debug.addString(" MSG_REQUEST_PRINT_JOB Revcd Print requet when already Printing Already PRINTING");
+                            Log.e("PRINTREQUEST", "Already printing, wait until job complete.");
                         } else {
-                            Log.i(TAG, "PRINT isPrinting TRUE, Printing " + mFileName);
+                            if (mFileName == null) {
+                                debug.addString(" MSG_REQUEST_PRINT_JOB FILENAME IS NULL");
+                                Log.e("PRINTREQUEST", "mFileName is null");
+                                // break;
+                            } else {
+                                Log.i(TAG, "PRINT isPrinting TRUE, Printing " + mFileName);
 
-                            isPrinting = true;
-//                            isWaitingToPrint = true;
-                            if ( null != svc().mCheckLG){
-                                Log.i(TAG, "Stopping check connection thread");
-                                svc().mCheckLG.cancelBT_Connecting();
-                                svc().mCheckLG.stopTransfer();
+                                isPrinting = true;
+                                //                            isWaitingToPrint = true;
+                                // stop connection thread
+                                svc().stopCheckLGThread();
 
+                                // Dont let check connection flow trigger
+                                // a false print job failure
+                                // TODO: Any reason not to clear ALL scheduled messages?
+                                //                            this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                                //                            this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+                                //                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                                this.removeCallbacksAndMessages(null);
+
+                                Uri imgUri = Uri.parse("file://" + mFileName);
+                                svc().mLGFileTransfer = new BluetoothFileTransfer(this.svc()
+                                        , null, imgUri, this);
+                                // This ALSO starts the transfer
+                                svc().mLGFileTransfer.getPairedDevices();
+
+                                // set a timeout, in case the printer shuts off and wew dont catch it
+                                /// (kicks off check lg again)
+                                this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_FAIL), PRINT_TIMEOUT_TRANSFER_MS);
+                            }
+                        }
+                        break;
+                    // LG Internal Messages
+                    case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
+                        // CHECK START SUCCESS
+                        // Print START SUCCESS
+                        mIsChecking = false;
+                        if (false == isPrinting) {
+                            if (false == mIsConnected || mFirstTime) {
+                                mFirstTime = false;
+                                mIsConnected = true;
+                                // Toast.makeText(MainActivity.this, "CONNECTED", Toast.LENGTH_SHORT).show();
+                                // SHow notification
+                                svc().showNotification("Printer Available", "The printer is within range.");
                             }
 
-                            // Dont let check connection flow trigger
-                            // a false print job failure
-                            // TODO: Any reason not to clear ALL scheduled messages?
-//                            this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-//                            this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
-//                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
-                            this.removeCallbacksAndMessages(null);
+                            // announce to clients
+                            sendPrinterStatusMessage();
+                        }
+                        String debugString = "BLUETOOTH_SOCKET_CONNECTED ";
+                        debugString += "isPrinting? " + isPrinting + " mIsConnected? "
+                                + mIsConnected + " isChecking? " + mIsChecking;
+                        debug.addString(debugString);
+                        break;
+                    case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
+                        mIsChecking = false;
+                        // CHECK FAILURE/INTERRUPT
+                        // We were interupted, but dont change connection, because
+                        // we generally interupt when we are ready to print
+                        Log.d(TAG, "BT check connection interupted");
+                        debug.addString("BT Check Connection Interrupted BLUETOOTH_CONNECTION_INTERRUPTED");
+                        break;
+                    case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
+                        // CHECK FAILURE
+                        // PRINT FAILURE
+                        // We get here in BOTH cases if we cannot connect to
+                        // the device, including if not paired.
+                        // Automatically retry?
+                        // if we are trying to print, send failure
+                        // otherwise, send connection status and try again
 
-                            Uri imgUri = Uri.parse("file://" + mFileName);
-                            svc().mLGFileTransfer = new BluetoothFileTransfer(this.svc()
-                                    , null, imgUri, this);
+                        removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+
+
+                        mIsChecking = false;
+                        //                    if (isPrinting) {
+                        //
+                        //                        mIsConnected = false;
+                        //
+                        //                        isPrinting = false;
+                        //                        Log.d(TAG, "isPrinting FALSE");
+                        //
+                        //                        mIsLastPrintJobSuccessful = false;
+                        //                        // Destroy LG print thread
+                        //                        if ( null != svc().mLGFileTransfer){
+                        //                            Log.i(TAG, "Stopping LG print image thread");
+                        //                            svc().mLGFileTransfer.cancelBT_Connecting();
+                        //                            svc().mLGFileTransfer.stopTransfer();
+                        //                            svc().mLGFileTransfer = null;
+                        //                        }
+                        //
+                        //
+                        //                        sendPrintJobStatus();
+                        //                    } else {
+                        if (!isPrinting) {
+                            if (mIsConnected || mFirstTime) {
+                                mFirstTime = false;
+                                mIsConnected = false;
+                                svc().showNotification("Printer Unavailable", "Issue connecting to printer");
+                            }
+                            sendPrinterStatusMessage();
+                        }
+
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
+
+                        String debugStringCF = " BLUETOOTH_SOCKET_CONNECT_FAIL ";
+                        debugStringCF += "isPrinting? " + isPrinting + " mIsConnected? "
+                                + mIsConnected + " isChecking? " + mIsChecking;
+                        debug.addString(debugStringCF);
+
+                        break;
+
+                    case Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION:
+
+
+                        String debugStringRC = "BT RETRY FOR CONNECTION " +
+                                " this " + this
+                                + " checking? " + mIsChecking
+                                + " Connected " + mIsConnected
+                                + " clients " + svc().getClients().size()
+                                + " mCheckLG " +
+                                (svc().mCheckLG != null ?
+                                        svc().mCheckLG.hashCode() + " " + svc().mCheckLG
+                                        : "null");
+                        Log.i(TAG, debugStringRC);
+                        debug.addString(debugStringRC);
+                        // Check SUCCESS
+                        // This fires on CHECK flow when we disconnect from
+                        // the thread. Do not alter the mIsConnected here,
+                        // only in FAIL
+
+                        // If we succeed with a CHECK and we are already trying to print
+                        if (isPrinting) {
+                            // mIsChecking = false;
+                            Log.v(TAG, "isPrinting TRUE However, we are in RETRY for connect.");
+                            debug.addString("isPrinting TRUE However, we are in RETRY for connect.");
+                        }
+                        // If one CHECK running already, dont getPaired again
+                        else if (svc().mCheckLG != null && mIsChecking == false) {
+                            //                        try {
+                            //                            Thread.sleep(30000);
+                            //                        } catch (InterruptedException e) {
+                            //                            e.printStackTrace();
+                            //                        }
+                            //svc().mCheckLG.stopTransfer();
+                            //svc().mCheckLG.cancelBT_Connecting();
+                            // this ALso starts check tranfer
+                            svc().mCheckLG.getPairedDevices();
+
+                            mIsChecking = true;
+                            // If CHECK object is null, we need to use it to kick off the process
+                        } else if (svc().mCheckLG == null) {
+
+                            svc().mCheckLG = new CheckLGConnection((Context) svc(), this);
                             // This ALSO starts the transfer
-                            svc().mLGFileTransfer.getPairedDevices();
+                            svc().mCheckLG.getPairedDevices();
 
-                            // set a timeout, in case the printer shuts off and wew dont catch it
-                            /// (kicks off check lg again)
-                            this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_FAIL), PRINT_TIMEOUT_TRANSFER_MS);
+                            mIsChecking = true;
                         }
-                    }
-                    break;
-                // LG Internal Messages
-                case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
-                    // CHECK START SUCCESS
-                    // Print START SUCCESS
-                    mIsChecking = false;
-                    if ( false == isPrinting) {
-                        if ( false == mIsConnected || mFirstTime ) {
-                            mFirstTime = false;
-                            mIsConnected = true;
-                            // Toast.makeText(MainActivity.this, "CONNECTED", Toast.LENGTH_SHORT).show();
-                            // SHow notification
-                            svc().showNotification("Printer Available", "The printer is within range.");
+                        break;
+
+
+                    case Opptransfer.BLUETOOTH_SEND_FAIL:
+
+                        String debugStringSF = "*** BLUETOOTH_SEND_FAIL (Entry)";
+                        debugStringSF += "isPrinting? " + isPrinting + " mIsConnected? "
+                                + mIsConnected + " isChecking? " + mIsChecking;
+                        debug.addString(debugStringSF);
+
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                        // Check INTERUPTED?
+                        // Print Job FAILURE
+                        // This is for BOTH flows when there is RFCOMM ERROR
+                        // or when a Share error during Printing occurs
+
+                        //                    sendFailState((int)msg.arg1);
+                        //mLGFileTransfer = null;
+                        //                    if (mProgress!=null) mProgress.setProgress(0);
+
+                        // We might be here forprint timeout
+
+                        // if we try to print and we get this,
+                        // we will be marked false.
+                        mIsChecking = false;
+                        if (isPrinting) {
+                            // isPrinting set by first client who tries
+                            // to print.
+                            isPrinting = false;
+                            Log.d(TAG, "isPrinting FALSE");
+
+                            // Destroy LG print thread
+                            svc().destroyPrintThread();
+
+                            mIsLastPrintJobSuccessful = false;
+                            sendPrintJobStatus();
+                        } else {
+                            // if already unconnected dont show noti again
+                            if (mIsConnected || mFirstTime) {
+                                mFirstTime = false;
+                                mIsConnected = false;
+
+                                svc().showNotification("Printer Unavailable", "Issue connecting to printer");
+                            }
+                            // we want to broadcast always
+                            sendPrinterStatusMessage();
+
                         }
+                        // this doesnt mean we left the area, so dont set disconnected
+                        this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
 
-                        // announce to clients
-                        sendPrinterStatusMessage();
-                    }
-                    break;
-                case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
-                    mIsChecking = false;
-                    // CHECK FAILURE/INTERRUPT
-                    // We were interupted, but dont change connection, because
-                    // we generally interupt when we are ready to print
-                    Log.d(TAG, "BT check connection interupted");
-                    break;
-                case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
-                    // CHECK FAILURE
-                    // PRINT FAILURE
-                    // We get here in BOTH cases if we cannot connect to
-                    // the device, including if not paired.
-                    // Automatically retry?
-                    // if we are trying to print, send failure
-                    // otherwise, send connection status and try again
+                        break;
 
-                    removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                    removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+                    // Sending image data via Bluetooth
+                    case Opptransfer.BLUETOOTH_SEND_PACKET:
 
+                        // We remove any send fails, which may be waiting
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                        // mIsConnected = true;
+                        int per = (int) ((msg.arg1 / (float) msg.arg2) * 100);
+                        Log.i(TAG, "Print Job %" + String.valueOf(per));
+                        debug.addString("Print Job Send Packet : " + String.valueOf(per) + "%");
+                        break;
 
-                    mIsChecking = false;
-//                    if (isPrinting) {
-//
-//                        mIsConnected = false;
-//
-//                        isPrinting = false;
-//                        Log.d(TAG, "isPrinting FALSE");
-//
-//                        mIsLastPrintJobSuccessful = false;
-//                        // Destroy LG print thread
-//                        if ( null != svc().mLGFileTransfer){
-//                            Log.i(TAG, "Stopping LG print image thread");
-//                            svc().mLGFileTransfer.cancelBT_Connecting();
-//                            svc().mLGFileTransfer.stopTransfer();
-//                            svc().mLGFileTransfer = null;
-//                        }
-//
-//
-//                        sendPrintJobStatus();
-//                    } else {
-                    if(!isPrinting){
-                        if ( mIsConnected || mFirstTime ){
-                            mFirstTime = false;
-                            mIsConnected = false;
-                            svc().showNotification("Printer Unavailable", "Issue connecting to printer");
-                        }
-                        sendPrinterStatusMessage();
-                    }
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
+                    // Complete to send image data
+                    case Opptransfer.BLUETOOTH_SEND_COMPLETE:
 
-                    break;
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                        // Print Job SUCCESS COMPLETE
+                        // WHen we are done successfully printing, alert
+                        // the clients
+                        // If they dont care, they dont handle it
+                        // Or at the very least, they should set a client side
+                        // check to ignore or handle the message i.e. isWaitingPrintJob
 
-                case Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION:
+                        // mLGFileTransfer = null;
+                        // Toast.makeText(MessengerService.this, "Send Complete", Toast.LENGTH_LONG).show();
 
-
-                    Log.i(TAG, "BT RETRY FOR CONNECTION " +
-                                    " this " + this
-                            + " checking? " + mIsChecking
-                             + " Connected " + mIsConnected
-                            + " clients " + svc().getClients().size()
-                            + " mCheckLG " +
-                            (svc().mCheckLG != null ?
-                                    svc().mCheckLG.hashCode() + " " + svc().mCheckLG
-                                    : "null" )
-                    );
-                    // Check SUCCESS
-                    // This fires on CHECK flow when we disconnect from
-                    // the thread. Do not alter the mIsConnected here,
-                    // only in FAIL
-
-                    // If we succeed with a CHECK and we are already trying to print
-                    if ( isPrinting ){
-                        // mIsChecking = false;
-                        Log.v(TAG, "isPrinting TRUE However, we are in RETRY for connect.");
-
-                    }
-                    // If one CHECK running already, dont getPaired again
-                    else if ( svc().mCheckLG != null && mIsChecking == false){
-//                        try {
-//                            Thread.sleep(30000);
-//                        } catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-                        //svc().mCheckLG.stopTransfer();
-                        //svc().mCheckLG.cancelBT_Connecting();
-                        // this ALso starts check tranfer
-                        svc().mCheckLG.getPairedDevices();
-
-                        mIsChecking = true;
-                        // If CHECK object is null, we need to use it to kick off the process
-                    } else if ( svc().mCheckLG == null ) {
-
-                        svc().mCheckLG = new CheckLGConnection((Context) svc(), this);
-                        // This ALSO starts the transfer
-                        svc().mCheckLG.getPairedDevices();
-
-                        mIsChecking = true;
-                    }
-                    break;
-
-
-                case Opptransfer.BLUETOOTH_SEND_FAIL:
-
-                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
-                    // Check INTERUPTED?
-                    // Print Job FAILURE
-                    // This is for BOTH flows when there is RFCOMM ERROR
-                    // or when a Share error during Printing occurs
-
-//                    sendFailState((int)msg.arg1);
-                    //mLGFileTransfer = null;
-//                    if (mProgress!=null) mProgress.setProgress(0);
-
-                    // We might be here forprint timeout
-
-                    // if we try to print and we get this,
-                    // we will be marked false.
-                    mIsChecking = false;
-                    if (isPrinting){
-                        // isPrinting set by first client who tries
-                        // to print.
+                        mIsLastPrintJobSuccessful = true;
                         isPrinting = false;
                         Log.d(TAG, "isPrinting FALSE");
+                        sendPrintJobStatus();
 
                         // Destroy LG print thread
-                        if ( null != svc().mLGFileTransfer){
-                            Log.i(TAG, "Stopping LG print image thread");
-                            svc().mLGFileTransfer.cancelBT_Connecting();
-                            svc().mLGFileTransfer.stopTransfer();
-                            svc().mLGFileTransfer = null;
-                        }
+                        svc().destroyPrintThread();
 
-                        mIsLastPrintJobSuccessful = false;
-                        sendPrintJobStatus();
-                    } else {
-                        // if already unconnected dont show noti again
-                        if ( mIsConnected || mFirstTime ) {
-                            mFirstTime = false;
-                            mIsConnected = false;
+                        this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
 
-                            svc().showNotification("Printer Unavailable", "Issue connecting to printer");
-                        }
-                        // we want to broadcast always
-                        sendPrinterStatusMessage();
+                        debug.addString("PRINT Successful ");
+                        break;
+                    // END LG
 
-                    }
-                    // this doesnt mean we left the area, so dont set disconnected
-                    this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
-
-                    break;
-
-                // Sending image data via Bluetooth
-                case Opptransfer.BLUETOOTH_SEND_PACKET:
-
-                    // We remove any send fails, which may be waiting
-                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
-                    // mIsConnected = true;
-                    int per = (int) ((msg.arg1 / (float) msg.arg2) * 100);
-                    Log.i(TAG, "Print Job %" + String.valueOf(per));
-                    break;
-
-                // Complete to send image data
-                case Opptransfer.BLUETOOTH_SEND_COMPLETE:
-
-                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
-                    // Print Job SUCCESS COMPLETE
-                    // WHen we are done successfully printing, alert
-                    // the clients
-                    // If they dont care, they dont handle it
-                    // Or at the very least, they should set a client side
-                    // check to ignore or handle the message i.e. isWaitingPrintJob
-
-                    // mLGFileTransfer = null;
-                    // Toast.makeText(MessengerService.this, "Send Complete", Toast.LENGTH_LONG).show();
-
-                    mIsLastPrintJobSuccessful = true;
-                    isPrinting = false;
-                    Log.d(TAG, "isPrinting FALSE");
-                    sendPrintJobStatus();
-
-                    // Destroy LG print thread
-                    if ( null != svc().mLGFileTransfer){
-                        Log.i(TAG, "Stopping LG print image thread");
-                        svc().mLGFileTransfer.cancelBT_Connecting();
-                        svc().mLGFileTransfer.stopTransfer();
-                        svc().mLGFileTransfer = null;
-                    }
-
-                    this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
-
-                    break;
-                // END LG
-
-                default:
-                    super.handleMessage(msg);
+                    default:
+                        super.handleMessage(msg);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Handle Message Exception: " + e.getClass() + " "
+                        + e.getMessage());
+                String str = "EXCEPTION during handle message\n" + e.getMessage();
+                for (StackTraceElement s : e.getStackTrace()){
+                    str += s.getClassName() + " " + s.getFileName() + " "
+                            + s.getMethodName() + " on line " + s.getLineNumber();
+                }
+                debug.addString(str);
+                sendPrintJobStatus();
             }
+
+            // end handle Message
+            return;
+        }
+        // End Handler
+    }
+
+    public void destroyPrintThread(){
+        // Destroy LG print thread
+        if ( null != this.mLGFileTransfer){
+            Log.i(TAG, "Stopping LG print image thread");
+            this.mLGFileTransfer.cancelBT_Connecting();
+            this.mLGFileTransfer.stopTransfer();
+            this.mLGFileTransfer = null;
+            mHandler.debug.addString("Stopped PRINT thread " + mLGFileTransfer);
+        } else {
+            mHandler.debug.addString("No PRINT thread to stop.");
+        }
+    }
+    public void stopCheckLGThread(){
+        // Destroy LG print thread
+
+        if (null != mCheckLG) {
+            mCheckLG.stopTransfer();
+            mCheckLG.cancelBT_Connecting();
+
+            mHandler.debug.addString("Stopped LG check thread " + mCheckLG);
+        } else {
+            mHandler.debug.addString("No Check connect thread to stop.");
         }
 
     }
-    
     /**
      * Target we publish for clients to send messages to IncomingHandler.
      */
@@ -533,15 +590,9 @@ public class MessengerService extends Service {
     @Override
     public boolean onUnbind(Intent intent){
         Log.i(TAG, "onUnBind called: Cancelling LG print threads.");
-        if ( null != mCheckLG) {
-            mCheckLG.stopTransfer();
-            mCheckLG.cancelBT_Connecting();
-        }
+        stopCheckLGThread();
 
-        if ( null != mLGFileTransfer ) {
-            mLGFileTransfer.stopTransfer();
-            mLGFileTransfer.cancelBT_Connecting();
-        }
+        destroyPrintThread();
 
         return false;
     }

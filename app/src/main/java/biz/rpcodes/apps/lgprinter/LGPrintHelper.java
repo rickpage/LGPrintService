@@ -101,5 +101,45 @@ public class LGPrintHelper {
         sendPrintJob(filepath, mService);
     }
 
+    /**
+     * Used by clients for incoming status messages
+     * @param m
+     * @return true if arg1 is either PrintIntentConstants.SUCCESS or PrintIntentConstants.AVAILABLE
+     */
+    public static boolean hasSuccessStatus(Message m){
+        return (m.arg1 == PrintIntentConstants.AVAILABLE
+                || m.arg1 == PrintIntentConstants.SUCCESS);
+    }
+
+    /**
+     * Used by clients for incoming status messages
+     * Returns null if nothing to report, and in turn we should usually not
+     * send a device message triggered by print status
+     * @param m
+     * @return String of recent events and errors with timestamps (TODO: Limit?)
+     */
+    public static String getDebugString(Message m){
+        Bundle b = m.getData();
+        String s = b.getString("debug");
+//        if (null == s){
+//           No, return null, so we can skip messaging; s = "No Debug Information";
+//        }
+        return s;
+    }
+
+    /**
+     * Used by clients for incoming status messages
+     * @param m
+     * @return String of recent events and errors with timestamps (TODO: Limit?)
+     */
+    public static void setDebugString(Message m, String s){
+        if ( s == null || m == null){
+            return;
+        }
+        Bundle b = m.getData();
+        b.putString("debug",s);
+    }
+
+
 
 }
