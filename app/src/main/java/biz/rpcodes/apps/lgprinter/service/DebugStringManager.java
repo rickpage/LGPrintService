@@ -12,6 +12,7 @@ import java.util.Date;
  * Created by page on 2/26/16.
  */
 public class DebugStringManager {
+    int stringCounter = 0;
     int composeCount = 0;
     final String OLD_HEADER= "\nLAST MESSAGE\n";
     final String NEW_HEADER="\nNEW MESSAGE\n";
@@ -26,11 +27,16 @@ public class DebugStringManager {
     private String getNowString(){
         return dateFormatter.format(new Date());
     }
+
+    public int getCount(){
+        return stringCounter;
+    }
     /**
      *
      * @return If null, this means we do not want to send messages, so we dont clutter server
      */
     public String getDebugMessage(){
+        stringCounter = 0;
         String s = "\n";
         if ( composeCount <= MAX_AMOUNT_MESSAGES ) {
             composeCount++;
@@ -56,7 +62,7 @@ public class DebugStringManager {
      * @param s
      */
     public void addString(String s){
-
+        stringCounter++;
         newMessage += "\n" + getNowString() + " : " + s;
     }
 }

@@ -155,8 +155,10 @@ public class MessengerService extends Service {
                             PrintIntentConstants.AVAILABLE
                             : PrintIntentConstants.UNAVAILABLE
                             , mErrorCode);
-                    // Increases counter, we only can send so many
-                    LGPrintHelper.setDebugString(m, debug.getDebugMessage());
+                    if (debug.getCount() > 100) {
+                        // Increases counter, we only can send so many
+                        LGPrintHelper.setDebugString(m, debug.getDebugMessage());
+                    }
                     svc().getClients().get(i).send(m);
                 } catch (RemoteException e) {
                     // The client is dead.  Remove it from the list;
