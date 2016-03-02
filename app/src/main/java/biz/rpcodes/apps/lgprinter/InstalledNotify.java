@@ -20,12 +20,17 @@ import android.widget.Toast;
 
 import biz.rpcodes.apps.lgprinter.service.MessengerService;
 
+/**
+ *
+ */
 public class InstalledNotify extends ActionBarActivity {
 
     private Messenger mService;
     private boolean mIsAttached;
     private Messenger mMessenger = new Messenger(new Handler());
     /**
+     * UNUSED
+     * Uncomment code in oncreate if you want to connect to print service from this notify app when launched
      * Class for interacting with the main interface of the service.
      */
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -73,19 +78,19 @@ public class InstalledNotify extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_installed_notify);
-
-        // This is how we bind using external
-        Intent i = new Intent();//PrintIntentConstants.start_service);
-        //i.setPackage(PrintIntentConstants.package_name);
-        i.setClassName(PrintIntentConstants.package_name, PrintIntentConstants.service_name);
-        if (getPackageManager().resolveService(i, PackageManager.GET_INTENT_FILTERS) != null) {
-            bindService(i, mConnection, Context.BIND_AUTO_CREATE);
-            // mIsBound = true;
-        } else {
-            Toast.makeText(this.getApplicationContext()
-                    , "LG Print Service Not Installed!"
-                    , Toast.LENGTH_SHORT);
-        }
+//
+//        // This is how we bind using external
+//        Intent i = new Intent();//PrintIntentConstants.start_service);
+//        //i.setPackage(PrintIntentConstants.package_name);
+//        i.setClassName(PrintIntentConstants.package_name, PrintIntentConstants.service_name);
+//        if (getPackageManager().resolveService(i, PackageManager.GET_INTENT_FILTERS) != null) {
+//            bindService(i, mConnection, Context.BIND_AUTO_CREATE);
+//            // mIsBound = true;
+//        } else {
+//            Toast.makeText(this.getApplicationContext()
+//                    , "LG Print Service Not Installed!"
+//                    , Toast.LENGTH_SHORT);
+//        }
     }
 
 

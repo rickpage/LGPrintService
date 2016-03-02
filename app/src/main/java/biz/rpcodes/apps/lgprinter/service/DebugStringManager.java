@@ -14,11 +14,11 @@ import java.util.Date;
 public class DebugStringManager {
     int stringCounter = 0;
     int composeCount = 0;
-    final String OLD_HEADER= "\nLAST MESSAGE\n";
+    //final String OLD_HEADER= "\nLAST MESSAGE\n";
     final String NEW_HEADER="\nNEW MESSAGE\n";
     final String DEFAULT_MESSAGE = "\nNothing yet\n";
 
-    String oldMessage = DEFAULT_MESSAGE;
+    //String oldMessage = DEFAULT_MESSAGE;
     String newMessage = DEFAULT_MESSAGE;
     private int MAX_AMOUNT_MESSAGES = 1024;
 
@@ -49,9 +49,10 @@ public class DebugStringManager {
         } else {
             s += composeCount + " messages have been composed by LG Print Service.\n";
         }
-        s = OLD_HEADER + oldMessage + NEW_HEADER + newMessage + s;
+        s = //OLD_HEADER + oldMessage +
+                NEW_HEADER + newMessage + s;
 
-        oldMessage = newMessage;
+        //oldMessage = newMessage;
         newMessage = "";
 
         return s;
