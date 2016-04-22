@@ -279,7 +279,7 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 				BluetoothOppShareInfo info2 = (BluetoothOppShareInfo) msg.obj;
 				mSession.stop();
 				mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
-				mBatch.mErrStatus = info2.mErrStatus;
+				mBatch.mErrStatus = info2.mErrStatus; // RP: Why is this 0?
 				markBatchFailed(info2.mStatus);
 				tickShareStatus(mCurrentShare);
 				notifyToManager(msg);

@@ -31,6 +31,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.lge.pocketphoto.bluetooth.BluetoothFileTransfer;
+import com.lge.pocketphoto.bluetooth.ErrorCodes;
 import com.lge.pocketphoto.bluetooth.Opptransfer;
 
 import java.lang.ref.WeakReference;
@@ -156,7 +157,11 @@ public class MessengerService extends Service {
                             , mIsConnected ?
                             PrintIntentConstants.AVAILABLE
                             : PrintIntentConstants.UNAVAILABLE
-                            , mErrorCode);
+                            , mErrorCode
+                    );
+                    Bundle b = new Bundle();
+                    b.putString("error", getFailState());
+                    m.setData(b);
                     if (debug.getCount() > 100) {
                         // Increases counter, we only can send so many
                         LGPrintHelper.setDebugString(m, debug.getDebugMessage());
@@ -181,8 +186,12 @@ public class MessengerService extends Service {
                                 , mIsLastPrintJobSuccessful ?
                                         PrintIntentConstants.SUCCESS
                                         : PrintIntentConstants.FAILURE
-                                , mErrorCode
+                                ,  mErrorCode
+
                         );
+                        Bundle b = new Bundle();
+                        b.putString("error", getFailState());
+                        m.setData(b);
                         // Increases counter, we only can send so many
                         LGPrintHelper.setDebugString(m, debug.getDebugMessage());
                         svc().getClients().get(i).send(m);
@@ -213,16 +222,7 @@ public class MessengerService extends Service {
                         }
 
                         svc().getClients().add(msg.replyTo);
-                        //
-                        //                    Log.i(TAG, "STarted? " + mStarted);
-                        //                    // Assume the flow is already kicked off
-                        //                    // if we have more than one client
-                        //                    if ( !mStarted ){
-                        //                        Log.i(TAG, "V5 Starting connection checks");
-                        //                        mStarted = true;
-                        //                        mFirstTime = true;
-                        //                        this.sendMessage(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION));
-                        //                    }
+
                         if (svc().mClients != null && svc().mClients.size() > 0) {
                             // Display a notification about us starting.
                             svc().showNotification();
@@ -249,8 +249,9 @@ public class MessengerService extends Service {
                         }
                 }
 
+                //
                 // These are split ON PURPOSE: Register and Print handling should be separate!
-
+                //
 
                 // TODO: handle this differently
                 switch(msg.what){
@@ -276,12 +277,7 @@ public class MessengerService extends Service {
                                 // stop connection thread
                                 svc().stopCheckLGThread();
 
-                                // Dont let check connection flow trigger
-                                // a false print job failure
-                                // TODO: Any reason not to clear ALL scheduled messages?
-                                //                            this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                                //                            this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
-                                //                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                                // Remove any stale messages
                                 this.removeCallbacksAndMessages(null);
 
                                 Uri imgUri = Uri.parse("file://" + mFileName);
@@ -292,7 +288,7 @@ public class MessengerService extends Service {
 
                                 // set a timeout, in case the printer shuts off and wew dont catch it
                                 /// (kicks off check lg again)
-                                this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_FAIL), PRINT_TIMEOUT_TRANSFER_MS);
+                                this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_TIMEOUT), PRINT_TIMEOUT_TRANSFER_MS);
                             }
                         }
                         break;
@@ -320,6 +316,7 @@ public class MessengerService extends Service {
                         break;
                     case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
                         mIsChecking = false;
+                        debug.addString("CONNECTION INTERRUPTED: Message Status: " + msg.arg2 + " " + msg.arg2);
                         // CHECK FAILURE/INTERRUPT
                         // We were interupted, but dont change connection, because
                         // we generally interupt when we are ready to print
@@ -327,6 +324,9 @@ public class MessengerService extends Service {
                         debug.addString("BT Check Connection Interrupted BLUETOOTH_CONNECTION_INTERRUPTED");
                         break;
                     case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
+
+                        setFailState(msg);
+
                         // CHECK FAILURE
                         // PRINT FAILURE
                         // We get here in BOTH cases if we cannot connect to
@@ -340,25 +340,7 @@ public class MessengerService extends Service {
 
 
                         mIsChecking = false;
-                        //                    if (isPrinting) {
-                        //
-                        //                        mIsConnected = false;
-                        //
-                        //                        isPrinting = false;
-                        //                        Log.d(TAG, "isPrinting FALSE");
-                        //
-                        //                        mIsLastPrintJobSuccessful = false;
-                        //                        // Destroy LG print thread
-                        //                        if ( null != svc().mLGFileTransfer){
-                        //                            Log.i(TAG, "Stopping LG print image thread");
-                        //                            svc().mLGFileTransfer.cancelBT_Connecting();
-                        //                            svc().mLGFileTransfer.stopTransfer();
-                        //                            svc().mLGFileTransfer = null;
-                        //                        }
-                        //
-                        //
-                        //                        sendPrintJobStatus();
-                        //                    } else {
+
                         if (!isPrinting) {
                             if (mIsConnected || mFirstTime) {
                                 mFirstTime = false;
@@ -379,6 +361,7 @@ public class MessengerService extends Service {
 
                     case Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION:
 
+                        setFailState(msg);
 
                         String debugStringRC = "BT RETRY FOR CONNECTION " +
                                 " this " + this
@@ -404,14 +387,7 @@ public class MessengerService extends Service {
                         }
                         // If one CHECK running already, dont getPaired again
                         else if (svc().mCheckLG != null && mIsChecking == false) {
-                            //                        try {
-                            //                            Thread.sleep(30000);
-                            //                        } catch (InterruptedException e) {
-                            //                            e.printStackTrace();
-                            //                        }
-                            //svc().mCheckLG.stopTransfer();
-                            //svc().mCheckLG.cancelBT_Connecting();
-                            // this ALso starts check tranfer
+
                             svc().mCheckLG.getPairedDevices();
 
                             mIsChecking = true;
@@ -427,12 +403,17 @@ public class MessengerService extends Service {
                         break;
 
 
+                    case Opptransfer.BLUETOOTH_SEND_TIMEOUT:
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
+                        debug.addString("TIMEOUT FIRED");
+                        // PASS THROUGH TO CANCEL PRINTING
                     case Opptransfer.BLUETOOTH_SEND_FAIL:
 
+                        setFailState(msg);
                         String debugStringSF = "*** BLUETOOTH_SEND_FAIL (Entry)";
                         debugStringSF += "isPrinting? " + isPrinting + " mIsConnected? "
                                 + mIsConnected + " isChecking? " + mIsChecking
-                        + " Message Status: " + msg.arg1 + " " + msg.arg2;
+                        + " Message Status: " + getFailState() + " " + msg.arg2 + " " + msg.arg2;
                         debug.addString(debugStringSF);
 
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
@@ -441,11 +422,7 @@ public class MessengerService extends Service {
                         // This is for BOTH flows when there is RFCOMM ERROR
                         // or when a Share error during Printing occurs
 
-                        //                    sendFailState((int)msg.arg1);
-                        //mLGFileTransfer = null;
-                        //                    if (mProgress!=null) mProgress.setProgress(0);
-
-                        // We might be here forprint timeout
+                        // We might be here for print timeout
 
                         // if we try to print and we get this,
                         // we will be marked false.
@@ -482,8 +459,8 @@ public class MessengerService extends Service {
                     // Sending image data via Bluetooth
                     case Opptransfer.BLUETOOTH_SEND_PACKET:
 
-                        // We remove any send fails, which may be waiting
-                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                        // We remove any send timeouts, which may be waiting
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                         // We also dont risk checking again
                         this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
 
@@ -496,7 +473,9 @@ public class MessengerService extends Service {
                     // Complete to send image data
                     case Opptransfer.BLUETOOTH_SEND_COMPLETE:
 
-                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                        setFailState(msg);
+
+                        this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
 
                         this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
 
@@ -543,6 +522,77 @@ public class MessengerService extends Service {
             // end handle Message
             return;
         }
+
+
+
+
+        public void setFailState(Message m){
+            mErrorCode = m.arg1;
+        }
+
+        public String getFailState()
+        {
+
+            String errStr = null; //"SUCCESS";
+
+            int error = mErrorCode;
+
+            switch(error)
+            {
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_BUSY:
+                    errStr = "BUSY";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_JAM:
+                    errStr = "DATA ERROR";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_EMPTY:
+                    errStr = "PAPER EMPTY";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_WRONG_PAPER:
+                    errStr = "PAPER MISMATCH";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_DATA_ERROR:
+                    errStr = "DATA ERROR";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_COVER_OPEN:
+                    errStr = "COVER OPEN";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_SYSTEM_ERROR:
+                    errStr = "SYSTEM ERROR";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_BATTERY_LOW:
+                    errStr = "BATTERY LOW";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_HIGH_TEMPERATURE:
+                    errStr = "HIGH TEMPERATURE";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_LOW_TEMPERATURE:
+                    errStr = "LOW TEMPERATURE";
+                    break;
+
+                case ErrorCodes.BLUETOOTH_RESPONSE_TARGET_COOLING_MODE:
+                    errStr = "HIGH TEMPERATURE";
+                    break;
+
+            }
+
+            if ( null != errStr)
+                debug.addString("Error Code: " + errStr);
+
+            return errStr;
+        }
+
+
         // End Handler
     }
 
@@ -677,6 +727,7 @@ public class MessengerService extends Service {
         // We use it later to cancel.
         mNM.notify(NOTIFICATION_ID, notification);
     }
+
 
 }
 //END_INCLUDE(service)

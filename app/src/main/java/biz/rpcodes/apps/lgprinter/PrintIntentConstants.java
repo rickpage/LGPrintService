@@ -90,4 +90,5 @@ public class PrintIntentConstants {
 
     public static final String package_name = "biz.rpcodes.apps.lgprinter";
     public static final String service_name = package_name + ".service.MessengerService";
+
 }
