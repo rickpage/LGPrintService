@@ -538,8 +538,11 @@ public class MessengerService extends Service {
             String s = "Stopping LG print image thread";
             mHandler.debug.addString(s);
             Log.i(TAG,s );
+
             this.mPatientLGFileTransfer.cancelBT_Connecting();
+
             this.mPatientLGFileTransfer.stopTransfer();
+
             this.mPatientLGFileTransfer = null;
         }
     }

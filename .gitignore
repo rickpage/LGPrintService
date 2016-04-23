@@ -34,3 +34,7 @@ build/
 
 #NDK
 obj/
+
+# memory
+captures/*.hprof
+captures/*.alloc

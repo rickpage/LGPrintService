@@ -192,6 +192,8 @@ public class IncomingHandler2 extends Handler {
                     // remove Retry messages
                     // so we dont do this too many times
                     this.removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
+                    this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+                    this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECTED);
 
                     // If we are currently Printing, we wait until
                     // next interval to try to grab the socket.
@@ -201,15 +203,16 @@ public class IncomingHandler2 extends Handler {
                         // Destroy the connection if we have it
                         svc().destroyPatientLGThread();
 
+                        Thread.sleep(150);
                         // Make a new connection
                         svc().mPatientLGFileTransfer =
                                 new PatientBluetoothFileTransfer(this.svc()
                                         , this);
                     }
 
-                    this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET
-                            , RETRY_FOR_BT_SOCKET_INTERVAL_MS)
-                        .sendToTarget();
+                    this.sendMessageDelayed(
+                            this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET)
+                    , RETRY_FOR_BT_SOCKET_INTERVAL_MS);
                     break;
 
                 case Opptransfer.BLUETOOTH_SEND_TIMEOUT:

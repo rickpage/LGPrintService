@@ -162,6 +162,7 @@ public class PatientBluetoothFileTransfer {
 							devAddr.add(device.getAddress());
 							devName.add(device.getName()); 
 							devCount++;
+							// save device, we use this to connect
 							mDevice = device;
 							break;
 						}
@@ -194,8 +195,20 @@ public class PatientBluetoothFileTransfer {
 
 	public void cancelBT_Connecting()
 	{
-		if(mtrans != null)
-			mtrans.stopConnect();
+		// TODO: Join if interrupt isnt enough
+		try {
+			mConnectThread.join();
+			// Closes the BT socket
+			mConnectThread.interrupt();
+			mConnectThread = null;
+		} catch (InterruptedException e) {
+			Log.i("PatientTransfer", "Interrupted connection");
+		//	e.printStackTrace();
+		}
+
+		// This doesnt seem to do it
+//		if(mtrans != null)
+//			mtrans.stopConnect();
 
 
 	
@@ -243,6 +256,7 @@ public class PatientBluetoothFileTransfer {
 		public void interrupt() {
 			if (!Constants.USE_TCP_DEBUG) {
 				if (btSocket != null) {
+					Log.i("INTERRUPT","INTERRUPT");
 					try {
 						Thread.sleep(500);
 						btSocket.close();
@@ -252,6 +266,8 @@ public class PatientBluetoothFileTransfer {
 					}
 				}
 			}
+			// RP
+			super.interrupt();
 		}
 
 		int check_connect=0; // 0: Connecting, 1: Connect Success, -1: Connection Fail, -2: Timerover
