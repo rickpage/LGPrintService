@@ -39,6 +39,7 @@ import biz.rpcodes.apps.lgprinter.LGPrintHelper;
 import biz.rpcodes.apps.lgprinter.PrintIntentConstants;
 import biz.rpcodes.apps.lgprinter.R;
 import biz.rpcodes.apps.printhelper.tempsolution.CheckLGConnection;
+import biz.rpcodes.apps.printhelper.tempsolution.PatientBluetoothFileTransfer;
 
 //BEGIN_INCLUDE(service)
 public class MessengerService extends Service {
@@ -57,6 +58,7 @@ public class MessengerService extends Service {
 
     /** Does the printing **/
     public BluetoothFileTransfer mLGFileTransfer;
+    public PatientBluetoothFileTransfer mPatientLGFileTransfer;
 
     // true when we finish init and expect 1+ clients from now on
     public boolean mIsInit = false;
@@ -206,7 +208,7 @@ public class MessengerService extends Service {
                             svc().showNotification();
                             // Start up the checking for the printer, unless its already going
                             if ( !mIsChecking ) {
-                                this.obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS).sendToTarget();
+                                this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET).sendToTarget();
                             }
                             svc().mIsInit = true;
                         }
@@ -291,21 +293,21 @@ public class MessengerService extends Service {
                         debug.addString(debugString);
                         break;
 
-                    case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
-                        mIsChecking = false;
-                        debug.addString("CONNECTION INTERRUPTED: Message Status: " + msg.arg2 + " " + msg.arg2);
-                        // CHECK FAILURE/INTERRUPT
-                        // We were interupted, but dont change connection, because
-                        // we generally interupt when we are ready to print
-                        Log.d(TAG, "BT check connection interupted");
-                        debug.addString("BT Check Connection Interrupted BLUETOOTH_CONNECTION_INTERRUPTED");
-                        break;
+//                    case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
+//                        mIsChecking = false;
+//                        debug.addString("CONNECTION INTERRUPTED: Message Status: " + msg.arg2 + " " + msg.arg2);
+//                        // CHECK FAILURE/INTERRUPT
+//                        // We were interupted, but dont change connection, because
+//                        // we generally interupt when we are ready to print
+//                        Log.d(TAG, "BT check connection interupted");
+//                        debug.addString("BT Check Connection Interrupted BLUETOOTH_CONNECTION_INTERRUPTED");
+//                        break;
 
                     case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
                         setFailState(msg);
 
                         // PRINT FAILURE
-                        removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
+                        removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
                         removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
 
 
@@ -320,7 +322,7 @@ public class MessengerService extends Service {
                             sendPrinterStatusMessage();
                         }
 
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET), CHECK_DELAY_MS);
 
                         String debugStringCF = " BLUETOOTH_SOCKET_CONNECT_FAIL ";
                         debugStringCF += "isPrinting? " + isPrinting + " mIsConnected? "
@@ -329,7 +331,7 @@ public class MessengerService extends Service {
 
                         break;
 
-                    case Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS:
+                    case Opptransfer.RETRY_FOR_BT_SOCKET:
 
                         setFailState(msg);
 
@@ -393,8 +395,8 @@ public class MessengerService extends Service {
 
                         }
                         // this doesnt mean we left the area, so dont set disconnected
-                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
+                        this.removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET), CHECK_DELAY_MS);
 
                         break;
 
@@ -404,7 +406,7 @@ public class MessengerService extends Service {
                         // We remove any send timeouts, which may be waiting
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                         // We also dont risk checking again
-                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
+                        this.removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
 
                         int per = (int) ((msg.arg1 / (float) msg.arg2) * 100);
                         Log.i(TAG, "Print Job %" + String.valueOf(per));
@@ -418,7 +420,7 @@ public class MessengerService extends Service {
 
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
 
-                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
+                        this.removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
 
                         // Print Job SUCCESS COMPLETE
 
@@ -431,7 +433,7 @@ public class MessengerService extends Service {
                         svc().destroyPrintThread();
 
                         // this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECTION);
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET), CHECK_DELAY_MS);
 
                         debug.addString("PRINT Successful ");
                         break;
@@ -527,6 +529,19 @@ public class MessengerService extends Service {
 
 
         // End Handler
+    }
+
+    public void destroyPatientLGThread(){
+        // Destroy LG print thread
+        if ( null != this.mPatientLGFileTransfer) {
+
+            String s = "Stopping LG print image thread";
+            mHandler.debug.addString(s);
+            Log.i(TAG,s );
+            this.mPatientLGFileTransfer.cancelBT_Connecting();
+            this.mPatientLGFileTransfer.stopTransfer();
+            this.mPatientLGFileTransfer = null;
+        }
     }
 
     public void destroyPrintThread(){

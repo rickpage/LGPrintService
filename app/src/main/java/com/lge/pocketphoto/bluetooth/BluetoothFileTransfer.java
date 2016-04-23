@@ -94,14 +94,6 @@ public class BluetoothFileTransfer{
 		}	
 	}
 
-	public void allowTransfer(){
-		if ( mtrans != null){
-			mtrans.allowTransfer();
-		} else {
-			; // TODO: Send NOT CONNECTED status, should already be that way
-			// This shou;d kick off auto reconnect message
-		}
-	}
 	private void init(Context ctx, Uri uri, Handler handler)
 	{
 		mUri = uri;
@@ -134,7 +126,7 @@ public class BluetoothFileTransfer{
 		mPrintPairedSearcher = new PrintPairedSearcher(mContext);
 	}
 
-	
+
 	public void getPairedDevices()
 	{
 		boolean bFounded = false;

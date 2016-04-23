@@ -30,16 +30,15 @@ import javax.obex.ObexTransport;
 
 public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> implements BluetoothOppBatch.BluetoothOppBatchListener {
 
+	private final BluetoothSocket mSocket;
 	private boolean bCancelConnect = false;
 	BluetoothOppBatch mBatch;
-	public static BluetoothSocket btSocket;
 	EventHandler mSessionHandler;
 	private HandlerThread mHandlerThread;
 	BluetoothOppObexSession mSession = null;
 	private Context mContext;
 	BluetoothOppShareInfo mCurrentShare;
 	private BluetoothAdapter mAdapter;
-	private SocketConnectThread mConnectThread=null;
 
     private boolean cancelTransferToKeepPrinterOn;
 
@@ -92,10 +91,12 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 									 PowerManager powerManager,
 									 BluetoothOppBatch batch,
 									 Handler handler,
-									 boolean bPair) throws Exception{
+									 BluetoothSocket socket) throws Exception{
 
 		mBatch = batch;
 		mContext = context;
+
+		mSocket = socket;
 
         if (context == null) {
             throw new NullPointerException("Context may not be null");
@@ -106,12 +107,31 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 
 		mManagerHandler = handler;	
 
-		// NOTE: This argument is 100% useless fo rhtis code
-		bPaired = bPair;
-
         // preventRealTransfer();
 	}
 
+	/**
+	 * Make transfer objects from socket
+	 * @throws Exception
+	 */
+	private void makeConnectionObjects(){
+		if ( mSocket == null) {
+			mSessionHandler.obtainMessage(RFCOMM_ERROR)
+					.sendToTarget();
+			return;
+		}
+		BluetoothOppRfcommTransport transport;
+		transport = new BluetoothOppRfcommTransport(
+				mSocket);
+
+//				BluetoothOppPreference.getInstance(mContext)
+//				.setChannel(device, OPUSH_UUID16, channel);
+//				BluetoothOppPreference.getInstance(mContext)
+//				.setName(device, device.getName());
+
+		mSessionHandler.obtainMessage(RFCOMM_CONNECTED,
+				transport).sendToTarget();
+	}
 //    public void startRealTransfer(){
 //        cancelTransferToKeepPrinterOn = false;
 //    }
@@ -131,8 +151,8 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 
 	private void startConnectSession() throws Exception {
 
-		mSessionHandler.obtainMessage(SDP_RESULT, -1, -1,
-				mBatch.mDestination).sendToTarget();
+		//mSessionHandler.obtainMessage(SDP_RESULT, -1, -1,
+		//		mBatch.mDestination).sendToTarget();
 	}	
 	
 	public void processCurrentShare() {
@@ -215,28 +235,30 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 //                }
                 notifyToManager(msg);
 				break;
-			case SDP_RESULT:              
-				if (!((BluetoothDevice) msg.obj)
-						.equals(mBatch.mDestination)) {
-					return;
-				}				
-				if(mConnectThread == null)
-				{
-					mConnectThread = new SocketConnectThread(
-							mBatch.mDestination, msg.arg1);
-					mConnectThread.start();
-				}
-				break;
+//			case SDP_RESULT:
+//				if (!((BluetoothDevice) msg.obj)
+//						.equals(mBatch.mDestination)) {
+//					return;
+//				}
+//				if(mConnectThread == null)
+//				{
+//					mConnectThread = new SocketConnectThread(
+//							mBatch.mDestination, msg.arg1);
+//					mConnectThread.start();
+//				}
+//				break;
 
 				/*
 				 * RFCOMM connect fail is for outbound share only! Mark batch
 				 * failed, and all shares in batch failed
 				 */
 			case RFCOMM_ERROR:
-				mConnectThread = null;
+//				mConnectThread = null;
+
 				markBatchFailed(BluetoothShare.STATUS_CONNECTION_ERROR);
 				mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
 
+				// We can notify here in case we lost something
 				notifyToManager(msg);
 
 				break;
@@ -245,14 +267,14 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 				 * BluetoothOppObexClientSession and start it
 				 */
 			case RFCOMM_CONNECTED:				
-				mConnectThread = null;
+				// mConnectThread = null;
 				// different class for "transport" in all the files...
 				mTransport = (ObexTransport) msg.obj;
 				// RP: Up until HERE, we are connected, but havent sent data
 				// This sets the file info and triggers boolean in run() for BTOppObexClientSession
 				startObexSession();
-
-				notifyToManager(msg);
+//  NO! We already know
+				// notifyToManager(msg);
 
 				break;
 				/*
@@ -392,7 +414,7 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 		// We should stay connected if we never call this because
 		// the loop waits until interupted or the flfag is on
 		// TODO put this if needed:
-		/// processCurrentShare();
+		processCurrentShare();
 	}
 
 	public void allowTransfer(){
@@ -413,168 +435,6 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
         }
     }
 
-	private class SocketConnectThread extends Thread {
-		private final String host;
-
-		private final BluetoothDevice device;
-
-		private final int channel;
-
-		private boolean isConnected;
-
-		private long timestamp;
-
-		private BluetoothSocket btSocket = null;
-
-		/* create a TCP socket */
-		public SocketConnectThread(String host, int port, int dummy) {
-			super ("Socket Connect Thread");
-			this .host = host;
-			this .channel = port;
-			this .device = null;
-			isConnected = false;
-		}
-
-		/* create a Rfcomm Socket */
-		public SocketConnectThread(BluetoothDevice device, int channel) {
-			super ("Socket Connect Thread");
-			this .device = device;
-			this .host = null;
-			this .channel = channel;
-			isConnected = false;
-		}
-
-		public void interrupt() {
-			if (!Constants.USE_TCP_DEBUG) {
-				if (btSocket != null) {
-					try {
-						Thread.sleep(500);
-						btSocket.close();
-						Thread.sleep(500);
-					} catch (Exception e) {
-
-					}
-				}
-			}
-		}
-
-		int check_connect=0; // 0: Connecting, 1: Connect Success, -1: Connection Fail, -2: Timerover
-	  	private class ConnectTask extends AsyncTask<Void, Void, Void> {   	
-
-			@Override
-			protected Void doInBackground(Void... params) {
-				try {
-					Thread.sleep(20000);
-					// Thread.sleep(10000);
-					if (check_connect!=0) return null;
-					check_connect=-2;
-//					BluetoothOppPreference.getInstance(mContext)
-//					.removeChannel(device, OPUSH_UUID16);
-					// This is just BAD, why do they turn off adapter? RP
-					/// if(mAdapter != null)mAdapter.disable();
-					
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				return null;
-			}    	
-	    }
-	 		@Override
-		public void run() {
-
-			timestamp = System.currentTimeMillis();
-
-			/* Use BluetoothSocket to connect */
-
-			try {			
-				btSocket = mBatch.mDestination.createRfcommSocketToServiceRecord(UUID.fromString("00001105-0000-1000-8000-00805f9b34fb"));
-				
-				if(btSocket == null)
-				{
-//					BluetoothOppPreference.getInstance(mContext)
-//					.removeChannel(device, OPUSH_UUID16);
-					markConnectionFailed(btSocket);
-					return;	
-				}
-
-				check_connect=0;
-				// might need to wait for socket to be formed
-				Thread.sleep(500);
-				try{ new ConnectTask().execute(); } catch (Throwable e) { e.printStackTrace(); } // handling 'time over' manually
-				// Looks like THIS is where we first connect to BT.
-				// From here we connect to client thread?
-				btSocket.connect(); // throws IOException
-				check_connect=1;
-				Thread.sleep(100);
-			} 
-			catch (Exception e) {
-				// e.printStackTrace();
-				try {
-					Thread.sleep(1000); //1 second delay
-					btSocket.connect();
-					Thread.sleep(200);
-					
-				} catch (Exception e1) {
-					// e1.printStackTrace();
-					check_connect=-1;
-//					BluetoothOppPreference.getInstance(mContext)
-//					.removeChannel(device, OPUSH_UUID16);
-					markConnectionFailed(btSocket);
-					return;
-				}
-			}			
-
-			if (check_connect==0)
-			{
-				check_connect=-1;
-//				BluetoothOppPreference.getInstance(mContext)
-//				.removeChannel(device, OPUSH_UUID16);
-				markConnectionFailed(btSocket);
-				return;	
-			}
-			
-			try {
-				BluetoothOppRfcommTransport transport;
-				transport = new BluetoothOppRfcommTransport(
-						btSocket);
-
-//				BluetoothOppPreference.getInstance(mContext)
-//				.setChannel(device, OPUSH_UUID16, channel);
-//				BluetoothOppPreference.getInstance(mContext)
-//				.setName(device, device.getName());
-				mSessionHandler.obtainMessage(RFCOMM_CONNECTED,
-						transport).sendToTarget();
-
-			} catch (Exception e) {
-
-//				BluetoothOppPreference.getInstance(mContext)
-//				.removeChannel(device, OPUSH_UUID16);
-				markConnectionFailed(btSocket);
-				return;
-			}
-
-		}
-
-		private void markConnectionFailed(Socket s) {
-			try {
-				s.close();
-			} catch (IOException e) {
-
-			}
-			mSessionHandler.obtainMessage(RFCOMM_ERROR).sendToTarget();
-		}
-
-		private void markConnectionFailed(BluetoothSocket s) {
-			try {
-				if(s != null)s.close();
-			} catch (IOException e) {
-
-			}
-
-			mSessionHandler.obtainMessage(RFCOMM_ERROR).sendToTarget();
-			return;
-		}
-	};
 
 
 	private void markBatchFailed(int failReason) {
@@ -632,9 +492,11 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 			mManagerHandler.obtainMessage(BLUETOOTH_SEND_FAIL, mBatch.mErrStatus, 0).sendToTarget();
 			break;
 		case RFCOMM_CONNECTED:
-			mManagerHandler.obtainMessage(BLUETOOTH_SOCKET_CONNECTED).sendToTarget();
+			//  NO! We already know!
+			// mManagerHandler.obtainMessage(BLUETOOTH_SOCKET_CONNECTED).sendToTarget();
 			break;
 		case RFCOMM_ERROR:
+			// We notify here because we needed a socket, so we will record error if we dont have it etc
 			mManagerHandler.obtainMessage(BLUETOOTH_SOCKET_CONNECT_FAIL, arg1, arg2).sendToTarget();
 			break; 
 		}		
@@ -662,7 +524,7 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 		mSessionHandler = new EventHandler(mHandlerThread.getLooper());
 		
 		try {
-			startConnectSession();
+			makeConnectionObjects();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

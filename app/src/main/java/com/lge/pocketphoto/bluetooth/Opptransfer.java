@@ -75,9 +75,8 @@ public class Opptransfer extends AsyncTask<Void, Integer, Void> implements Bluet
 	// RP
 	// This means we were successful, but we would like to retry
 	// Not used when using Opptransfer class
-	public static final int CHECK_BT_RETRY_FOR_CONNECT_STATUS = 100;
-	// RP
-	public static final int BLUETOOTH_CONNECTION_INTERRUPTED = 116;
+	public static final int RETRY_FOR_BT_SOCKET = 100;
+
 	// RP
 	// When we print, set this
 	public static final int BLUETOOTH_SEND_TIMEOUT = 120;

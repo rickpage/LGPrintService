@@ -7,7 +7,6 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.lge.pocketphoto.bluetooth.BluetoothFileTransfer;
 import com.lge.pocketphoto.bluetooth.ErrorCodes;
 import com.lge.pocketphoto.bluetooth.Opptransfer;
 
@@ -15,23 +14,25 @@ import java.lang.ref.WeakReference;
 
 import biz.rpcodes.apps.lgprinter.LGPrintHelper;
 import biz.rpcodes.apps.lgprinter.PrintIntentConstants;
+import biz.rpcodes.apps.printhelper.tempsolution.PatientBluetoothFileTransfer;
 
 /**
  * Created by page on 4/22/16.
  */
 public class IncomingHandler2 extends Handler {
     private static final int PRINT_TIMEOUT_TRANSFER_MS = 60000;
+    private static final int RETRY_FOR_BT_SOCKET_INTERVAL_MS = 10000;
+
     private final WeakReference<MessengerService> mService;
 
     public static DebugStringManager debug;
     private static final String TAG = "LGPrintMsgHandler";
 
-    private final int CHECK_CONNECTION_INTERVAL_MS = 3000;
     private boolean mIsPrinting;
     private boolean mIsConnected;
-    private boolean mIsChecking;
     private boolean mIsLastPrintJobSuccessful;
     private int mErrorCode = PrintIntentConstants.NO_ERROR_CODE;
+    private String mFileName;
 
     public IncomingHandler2(MessengerService s){
         mIsConnected = false;
@@ -50,17 +51,12 @@ public class IncomingHandler2 extends Handler {
     }
 
     private String craftDebugInfo(){
-        String s = "";
-        s += (mIsConnected ? "Connected, " : "DISCONNECTED, ");
-        s += (mIsPrinting ? "Printing, " : "No Print, ");
-        s += (mIsChecking ? "Checking, " : "Not Checking, ");
+        String s = "STATE: ";
+        s += (mIsConnected ? "Connected " : "DISCONNECTED ");
+        s += (mIsPrinting ? ", Printing " : ", No Print ");
 
-        // known bad states
-        boolean notKilled = (mIsChecking && mIsPrinting);
+        s += ", File: " + mFileName;
 
-        if (notKilled){
-            s += "Checking and Printing at Same Time!!!";
-        }
         return s;
     }
 
@@ -88,12 +84,9 @@ public class IncomingHandler2 extends Handler {
                         // Display a notification about us starting.
                         svc().showNotification();
 
-                        //
-                        // todo: actually do this with checker
-                        //
-                        mIsConnected = true;
-                        sendPrinterStatusMessage();
-
+                        // Kick off a retry to start getting the socket
+                        this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET)
+                                .sendToTarget();
                         svc().mIsInit = true;
                     }
                     break;
@@ -110,7 +103,7 @@ public class IncomingHandler2 extends Handler {
                     if ( svc().getClients() == null || svc().getClients().size() < 1)
                     {
                         debug.addString("Ignoring 0-client-instance " + svc() + " " + this + " connected? "
-                                + mIsConnected + " Checking? " + mIsChecking);
+                                + mIsConnected );
                         return;
                     }
             }
@@ -123,13 +116,24 @@ public class IncomingHandler2 extends Handler {
             // set error code
             setFailState(msg);
 
+            // debug info
+            debug.addString(craftDebugInfo());
             switch(msg.what){
                 // User Print
                 case PrintIntentConstants.MSG_REQUEST_PRINT_JOB:
+                    // When we get here, we may be still
+                    // waiting for the connection to complete
+                    // or we may be printing already
+                    // We can check printing,
+                    // but if we have no connection,
+                    // we should retry the print when we do.
+                    // For now, we just print, using the same
+                    // message
+
                     // get the  filepath
                     // String mFileName = (String) msg.obj;
                     Bundle bund = msg.getData();
-                    String mFileName = bund.getString("filepath");
+                    mFileName = bund.getString("filepath");
                     if (mIsPrinting) { // Make sure we aren't already printing
                         debug.addString(" MSG_REQUEST_PRINT_JOB Revcd Print requet when already Printing Already PRINTING");
                         Log.e("PRINTREQUEST", "Already printing, wait until job complete.");
@@ -143,17 +147,16 @@ public class IncomingHandler2 extends Handler {
 
                             mIsPrinting = true;
 
-                            // Remove any stale messages
-                            this.removeCallbacksAndMessages(null);
-
+                            // We want to remove any failed or succeeded or interupted
+                            // but DO NOT interupt the checking/connection RETRY_ msg
+                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
+                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_COMPLETE);
+                            this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
+                            // send the file
                             Uri imgUri = Uri.parse("file://" + mFileName);
-                            svc().mLGFileTransfer = new BluetoothFileTransfer(this.svc()
-                                    , null, imgUri, this);
-                            // This ALSO starts the transfer
-                            svc().mLGFileTransfer.getPairedDevices();
+                            svc().mPatientLGFileTransfer.startPrintingURI(imgUri);
 
-                            // set a timeout, in case the printer shuts off and wew dont catch it
-                            /// (kicks off check lg again)
+                            // set a timeout, in case the printer shuts off and we don't catch it
                             this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_TIMEOUT), PRINT_TIMEOUT_TRANSFER_MS);
                         }
                     }
@@ -163,24 +166,61 @@ public class IncomingHandler2 extends Handler {
                 //
                 // LG Internal Messages
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
+                    debug.addString("BLUETOOTH_SOCKET_CONNECTED");
+                    Log.i(TAG, "BLUETOOTH_SOCKET_CONNECTED");
+                    mIsConnected = true;
                     break;
 
-                case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
-                    break;
 
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
                     debug.addString("BLUETOOTH_CONNECT_FAIL");
                     Log.i(TAG, "BLUETOOTH_CONNECT_FAIL");
+                    mIsConnected = false;
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
                     break;
 
-                case Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS:
+                case Opptransfer.RETRY_FOR_BT_SOCKET:
+                    // If we have a socket open already,
+                    // clear any pending RETY messages,
+                    // then close the socket.
+                    // If we dont, then we couldnt connect last time.
+                    // Try again to open it.
+                    // This will fire multiple times every minute,
+                    // allowing us to move away/towards/etc
+
+                    // remove Retry messages
+                    // so we dont do this too many times
+                    this.removeMessages(Opptransfer.RETRY_FOR_BT_SOCKET);
+
+                    // If we are currently Printing, we wait until
+                    // next interval to try to grab the socket.
+                    // if we are printing we are connected
+                    if (!mIsPrinting){
+
+                        // Destroy the connection if we have it
+                        svc().destroyPatientLGThread();
+
+                        // Make a new connection
+                        svc().mPatientLGFileTransfer =
+                                new PatientBluetoothFileTransfer(this.svc()
+                                        , this);
+                    }
+
+                    this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET
+                            , RETRY_FOR_BT_SOCKET_INTERVAL_MS)
+                        .sendToTarget();
                     break;
 
                 case Opptransfer.BLUETOOTH_SEND_TIMEOUT:
                     debug.addString("BLUETOOTH_SEND_TIMEOUT");
                     Log.i(TAG, "BLUETOOTH SEND TIMEOUT");
+                    // We get here because printing took too long
+                    // TODO: We can automatically retry?
+                    // So mark failed
+                    mIsPrinting = false;
+                    mIsLastPrintJobSuccessful = false;
+                    sendPrintJobStatus();
                     break;
 
                 case Opptransfer.BLUETOOTH_SEND_FAIL:
@@ -189,10 +229,6 @@ public class IncomingHandler2 extends Handler {
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
                     sendPrintJobStatus();
-                    break;
-
-                // Sending image data via Bluetooth
-                case Opptransfer.BLUETOOTH_SEND_PACKET:
                     break;
 
                 // Complete to send image data

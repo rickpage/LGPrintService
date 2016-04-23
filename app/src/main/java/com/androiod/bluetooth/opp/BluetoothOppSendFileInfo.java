@@ -104,6 +104,9 @@ public class BluetoothOppSendFileInfo {
         ContentResolver contentResolver = context.getContentResolver();
         Uri u = Uri.parse(uri);
         String scheme = u.getScheme();
+        if ( scheme == null){
+            scheme = "file:";
+        }
         String fileName = null;
         String contentType = null;
         long length = 0;
