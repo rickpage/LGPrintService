@@ -61,21 +61,21 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 
 	private static final short OPUSH_UUID16 = 0x1105;
 	// When first connected
-	public static final int BLUETOOTH_SOCKET_CONNECTED = 50;
+	public static final int CHECK_BT_SOCKET_CONNECTED = 250;
 			
-	public static final int BLUETOOTH_SOCKET_CONNECT_FAIL = 51;
+	public static final int CHECK_BT_SOCKET_CONNECT_FAIL = 251;
 
-	public static final int BLUETOOTH_SEND_PACKET = 60;
+	public static final int CHECK_BT_SEND_PACKET = 260;
 			
-	public static final int BLUETOOTH_SEND_FIRST_PACKET = 61;
+	public static final int CHECK_BT_SEND_FIRST_PACKET = 261;
 			
-	public static final int BLUETOOTH_SEND_COMPLETE = 62;
+	public static final int CHECK_BT_SEND_COMPLETE = 262;
 			
-	public static final int BLUETOOTH_SEND_FAIL = 63;
+	public static final int BLUETOOTH_SEND_FAIL = 263;
 
-	public static final int BLUETOOTH_RETRY_FOR_CONNECTION = 100;
+	public static final int CHECK_BT_RETRY_FOR_CONNECTION = 100;
 	// RP
-	public static final int BLUETOOTH_CONNECTION_INTERRUPTED = 116;
+	public static final int CHECK_BT_CONNECTION_INTERRUPTED = 116;
 
 	public OppTransferForConnectOnly(Context context,
 									 PowerManager powerManager,
@@ -614,25 +614,25 @@ public class OppTransferForConnectOnly extends AsyncTask<Void, Integer, Void> im
 		switch(what)
 		{
 		case OppTransferForConnectOnly.OBEX_SEND_FIRST_PACKET:
-			mManagerHandler.obtainMessage(BLUETOOTH_SEND_FIRST_PACKET, arg1, arg2).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_SEND_FIRST_PACKET, arg1, arg2).sendToTarget();
 			break;
 		case com.lge.pocketphoto.bluetooth.Opptransfer.OBEX_SEND_PACKET:
-			mManagerHandler.obtainMessage(BLUETOOTH_SEND_PACKET, arg1, arg2).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_SEND_PACKET, arg1, arg2).sendToTarget();
 			break;
 		case BluetoothOppObexSession.MSG_SHARE_COMPLETE:
-			mManagerHandler.obtainMessage(BLUETOOTH_SEND_COMPLETE).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_SEND_COMPLETE).sendToTarget();
 			break;
 		case BluetoothOppObexSession.MSG_SESSION_ERROR: // RP
-			mManagerHandler.obtainMessage(BLUETOOTH_RETRY_FOR_CONNECTION, mBatch.mErrStatus, 0).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_RETRY_FOR_CONNECTION, mBatch.mErrStatus, 0).sendToTarget();
 			break;
 		case BluetoothOppObexSession.MSG_SHARE_INTERRUPTED:		
-			mManagerHandler.obtainMessage(BLUETOOTH_CONNECTION_INTERRUPTED, mBatch.mErrStatus, 0).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_CONNECTION_INTERRUPTED, mBatch.mErrStatus, 0).sendToTarget();
 			break;
 		case RFCOMM_CONNECTED:
-			mManagerHandler.obtainMessage(BLUETOOTH_SOCKET_CONNECTED).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_SOCKET_CONNECTED).sendToTarget();
 			break;
 		case RFCOMM_ERROR:
-			mManagerHandler.obtainMessage(BLUETOOTH_SOCKET_CONNECT_FAIL, arg1, arg2).sendToTarget();
+			mManagerHandler.obtainMessage(CHECK_BT_SOCKET_CONNECT_FAIL, arg1, arg2).sendToTarget();
 			break; 
 		}		
 	}

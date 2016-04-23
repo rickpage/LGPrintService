@@ -75,7 +75,7 @@ public class Opptransfer extends AsyncTask<Void, Integer, Void> implements Bluet
 	// RP
 	// This means we were successful, but we would like to retry
 	// Not used when using Opptransfer class
-	public static final int BLUETOOTH_RETRY_FOR_CONNECTION = 100;
+	public static final int CHECK_BT_RETRY_FOR_CONNECT_STATUS = 100;
 	// RP
 	public static final int BLUETOOTH_CONNECTION_INTERRUPTED = 116;
 	// RP
@@ -242,7 +242,7 @@ public class Opptransfer extends AsyncTask<Void, Integer, Void> implements Bluet
 				mConnectThread = null;
 				// different class for "transport" in all the files...
 				mTransport = (ObexTransport) msg.obj;
-				
+				// RP: Up until HERE, we are connected, but havent sent data
 				// This sets the file info and triggers boolean in run() for BTOppObexClientSession
 				startObexSession();
 
@@ -502,14 +502,14 @@ public class Opptransfer extends AsyncTask<Void, Integer, Void> implements Bluet
 				Thread.sleep(100);
 			} 
 			catch (Exception e) {
-				e.printStackTrace();
+				// e.printStackTrace();
 				try {
 					Thread.sleep(1000); //1 second delay
 					btSocket.connect();
 					Thread.sleep(200);
 					
 				} catch (Exception e1) {
-					e1.printStackTrace();
+					// e1.printStackTrace();
 					check_connect=-1;
 //					BluetoothOppPreference.getInstance(mContext)
 //					.removeChannel(device, OPUSH_UUID16);

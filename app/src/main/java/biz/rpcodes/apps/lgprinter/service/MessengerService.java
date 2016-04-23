@@ -18,7 +18,6 @@ package biz.rpcodes.apps.lgprinter.service;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -28,7 +27,6 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.lge.pocketphoto.bluetooth.BluetoothFileTransfer;
 import com.lge.pocketphoto.bluetooth.ErrorCodes;
@@ -36,25 +34,12 @@ import com.lge.pocketphoto.bluetooth.Opptransfer;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.IllegalFormatException;
 
 import biz.rpcodes.apps.lgprinter.LGPrintHelper;
 import biz.rpcodes.apps.lgprinter.PrintIntentConstants;
 import biz.rpcodes.apps.lgprinter.R;
 import biz.rpcodes.apps.printhelper.tempsolution.CheckLGConnection;
 
-
-/**
- * This is an example of implementing an application service that uses the
- * {@link Messenger} class for communicating with clients.  This allows for
- * remote interaction with a service, without needing to define an AIDL
- * interface.
- *
- * <p>Notice the use of the {@link NotificationManager} when interesting things
- * happen in the service.  This is generally how background services should
- * interact with the user, rather than doing something more disruptive such as
- * calling startActivity().
- */
 //BEGIN_INCLUDE(service)
 public class MessengerService extends Service {
 
@@ -70,31 +55,24 @@ public class MessengerService extends Service {
      */
     public CheckLGConnection mCheckLG;
 
+    /** Does the printing **/
     public BluetoothFileTransfer mLGFileTransfer;
-    public boolean mIsInit = false; // true when we finish init and expect 1+ clients from now on
 
+    // true when we finish init and expect 1+ clients from now on
+    public boolean mIsInit = false;
 
-    {
-        Log.i(TAG, "Instantiating Messenger Service: " + this);
+    public MessengerService(){
+        mHandler = new IncomingHandler2(this);
+        mMessenger = new Messenger(mHandler);
+        Log.i(TAG, "Constructor Messenger Service");
     }
 
-    /** Holds last value set by a client. */
-    int mValue = 0;
-
-    private ArrayList<Messenger> getClients(){
+    public ArrayList<Messenger> getClients(){
         if ( mClients.size() == 0 && mIsInit) {
             Log.i(TAG, ", 0 clients using this messenger service");
             this.stopSelf();
         }
         return mClients;
-    }
-
-    private int getValue(){
-        return mValue;
-    }
-
-    private void setValue(int v){
-        mValue = v;
     }
 
 
@@ -116,7 +94,7 @@ public class MessengerService extends Service {
         note the issue is that even when connected, an out of range
          or off printer does not trigger messages or Exception
         */
-        private boolean mIsConnected = false;
+        private boolean mIsConnected = true;
 
         /**
          * Indicates that the last print job has failed.
@@ -162,10 +140,9 @@ public class MessengerService extends Service {
                     Bundle b = new Bundle();
                     b.putString("error", getFailState());
                     m.setData(b);
-                    if (debug.getCount() > 100) {
-                        // Increases counter, we only can send so many
-                        LGPrintHelper.setDebugString(m, debug.getDebugMessage());
-                    }
+                    // Increases counter, we only can send so many
+                    LGPrintHelper.setDebugString(m, debug.getDebugMessage());
+
                     svc().getClients().get(i).send(m);
                 } catch (RemoteException e) {
                     // The client is dead.  Remove it from the list;
@@ -207,6 +184,7 @@ public class MessengerService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
+
             /*
              * Registered clients get periodic messages about printer status
              * that they can use to update UI and Logic.
@@ -228,7 +206,7 @@ public class MessengerService extends Service {
                             svc().showNotification();
                             // Start up the checking for the printer, unless its already going
                             if ( !mIsChecking ) {
-                                this.obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION).sendToTarget();
+                                this.obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS).sendToTarget();
                             }
                             svc().mIsInit = true;
                         }
@@ -273,9 +251,6 @@ public class MessengerService extends Service {
                                 Log.i(TAG, "PRINT isPrinting TRUE, Printing " + mFileName);
 
                                 isPrinting = true;
-                                //                            isWaitingToPrint = true;
-                                // stop connection thread
-                                svc().stopCheckLGThread();
 
                                 // Remove any stale messages
                                 this.removeCallbacksAndMessages(null);
@@ -292,16 +267,17 @@ public class MessengerService extends Service {
                             }
                         }
                         break;
+                    //
+                    // Print processing
+                    //
                     // LG Internal Messages
                     case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
-                        // CHECK START SUCCESS
                         // Print START SUCCESS
                         mIsChecking = false;
                         if (false == isPrinting) {
                             if (false == mIsConnected || mFirstTime) {
                                 mFirstTime = false;
                                 mIsConnected = true;
-                                // Toast.makeText(MainActivity.this, "CONNECTED", Toast.LENGTH_SHORT).show();
                                 // SHow notification
                                 svc().showNotification("Printer Available", "The printer is within range.");
                             }
@@ -314,6 +290,7 @@ public class MessengerService extends Service {
                                 + mIsConnected + " isChecking? " + mIsChecking;
                         debug.addString(debugString);
                         break;
+
                     case Opptransfer.BLUETOOTH_CONNECTION_INTERRUPTED:
                         mIsChecking = false;
                         debug.addString("CONNECTION INTERRUPTED: Message Status: " + msg.arg2 + " " + msg.arg2);
@@ -323,19 +300,12 @@ public class MessengerService extends Service {
                         Log.d(TAG, "BT check connection interupted");
                         debug.addString("BT Check Connection Interrupted BLUETOOTH_CONNECTION_INTERRUPTED");
                         break;
-                    case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
 
+                    case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
                         setFailState(msg);
 
-                        // CHECK FAILURE
                         // PRINT FAILURE
-                        // We get here in BOTH cases if we cannot connect to
-                        // the device, including if not paired.
-                        // Automatically retry?
-                        // if we are trying to print, send failure
-                        // otherwise, send connection status and try again
-
-                        removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
                         removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
 
 
@@ -350,7 +320,7 @@ public class MessengerService extends Service {
                             sendPrinterStatusMessage();
                         }
 
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
 
                         String debugStringCF = " BLUETOOTH_SOCKET_CONNECT_FAIL ";
                         debugStringCF += "isPrinting? " + isPrinting + " mIsConnected? "
@@ -359,11 +329,11 @@ public class MessengerService extends Service {
 
                         break;
 
-                    case Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION:
+                    case Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS:
 
                         setFailState(msg);
 
-                        String debugStringRC = "BT RETRY FOR CONNECTION " +
+                        String debugStringRC = "CHECK BT RETRY FOR CONNECTION " +
                                 " this " + this
                                 + " checking? " + mIsChecking
                                 + " Connected " + mIsConnected
@@ -374,41 +344,13 @@ public class MessengerService extends Service {
                                         : "null");
                         Log.i(TAG, debugStringRC);
                         debug.addString(debugStringRC);
-                        // Check SUCCESS
-                        // This fires on CHECK flow when we disconnect from
-                        // the thread. Do not alter the mIsConnected here,
-                        // only in FAIL
-
-                        // If we succeed with a CHECK and we are already trying to print
-                        if (isPrinting) {
-                            // mIsChecking = false;
-                            Log.v(TAG, "isPrinting TRUE However, we are in RETRY for connect.");
-                            debug.addString("isPrinting TRUE However, we are in RETRY for connect.");
-                        }
-                        // If one CHECK running already, dont getPaired again
-                        else if (svc().mCheckLG != null && mIsChecking == false) {
-
-                            svc().mCheckLG.getPairedDevices();
-
-                            mIsChecking = true;
-                            // If CHECK object is null, we need to use it to kick off the process
-                        } else if (svc().mCheckLG == null) {
-
-                            svc().mCheckLG = new CheckLGConnection((Context) svc(), this);
-                            // This ALSO starts the transfer
-                            svc().mCheckLG.getPairedDevices();
-
-                            mIsChecking = true;
-                        }
                         break;
-
 
                     case Opptransfer.BLUETOOTH_SEND_TIMEOUT:
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                         debug.addString("TIMEOUT FIRED");
-                        // PASS THROUGH TO CANCEL PRINTING
+                        // PASS THROUGH TO CANCEL PRINTING //
                     case Opptransfer.BLUETOOTH_SEND_FAIL:
-
                         setFailState(msg);
                         String debugStringSF = "*** BLUETOOTH_SEND_FAIL (Entry)";
                         debugStringSF += "isPrinting? " + isPrinting + " mIsConnected? "
@@ -451,8 +393,8 @@ public class MessengerService extends Service {
 
                         }
                         // this doesnt mean we left the area, so dont set disconnected
-                        this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
+                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
 
                         break;
 
@@ -462,9 +404,8 @@ public class MessengerService extends Service {
                         // We remove any send timeouts, which may be waiting
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                         // We also dont risk checking again
-                        this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
 
-                        // mIsConnected = true;
                         int per = (int) ((msg.arg1 / (float) msg.arg2) * 100);
                         Log.i(TAG, "Print Job %" + String.valueOf(per));
                         debug.addString("Print Job Send Packet : " + String.valueOf(per) + "%");
@@ -477,17 +418,9 @@ public class MessengerService extends Service {
 
                         this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
 
-                        this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
+                        this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS);
 
                         // Print Job SUCCESS COMPLETE
-                        // WHen we are done successfully printing, alert
-                        // the clients
-                        // If they dont care, they dont handle it
-                        // Or at the very least, they should set a client side
-                        // check to ignore or handle the message i.e. isWaitingPrintJob
-
-                        // mLGFileTransfer = null;
-                        // Toast.makeText(MessengerService.this, "Send Complete", Toast.LENGTH_LONG).show();
 
                         mIsLastPrintJobSuccessful = true;
                         isPrinting = false;
@@ -497,8 +430,8 @@ public class MessengerService extends Service {
                         // Destroy LG print thread
                         svc().destroyPrintThread();
 
-                        // this.removeMessages(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION);
-                        this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION), CHECK_DELAY_MS);
+                        // this.removeMessages(Opptransfer.CHECK_BT_RETRY_FOR_CONNECTION);
+                        this.sendMessageDelayed(obtainMessage(Opptransfer.CHECK_BT_RETRY_FOR_CONNECT_STATUS), CHECK_DELAY_MS);
 
                         debug.addString("PRINT Successful ");
                         break;
@@ -516,7 +449,7 @@ public class MessengerService extends Service {
                             + s.getMethodName() + " on line " + s.getLineNumber();
                 }
                 debug.addString(str);
-                // sendPrintJobStatus();
+                sendPrintJobStatus();
             }
 
             // end handle Message
@@ -603,9 +536,9 @@ public class MessengerService extends Service {
             this.mLGFileTransfer.cancelBT_Connecting();
             this.mLGFileTransfer.stopTransfer();
             this.mLGFileTransfer = null;
-            mHandler.debug.addString("Stopped PRINT thread " + mLGFileTransfer);
+            //mHandler.debug.addString("Stopped PRINT thread " + mLGFileTransfer);
         } else {
-            mHandler.debug.addString("No PRINT thread to stop.");
+            //mHandler.debug.addString("No PRINT thread to stop.");
         }
     }
     public void stopCheckLGThread(){
@@ -615,26 +548,18 @@ public class MessengerService extends Service {
             mCheckLG.stopTransfer();
             mCheckLG.cancelBT_Connecting();
 
-            mHandler.debug.addString("Stopped LG check thread " + mCheckLG);
+            //mHandler.debug.addString("Stopped LG check thread " + mCheckLG);
         } else {
-            mHandler.debug.addString("No Check connect thread to stop.");
+            //mHandler.debug.addString("No Check connect thread to stop.");
         }
 
     }
     /**
      * Target we publish for clients to send messages to IncomingHandler.
      */
-    final IncomingHandler mHandler;// = new IncomingHandler(this);
+    final IncomingHandler2 mHandler;// = new IncomingHandler(this);
     final Messenger mMessenger;// = new Messenger();
-    {
-        mHandler = new IncomingHandler(this);
-        mMessenger = new Messenger(mHandler);
-        // Kick off processing
-        //if (mClients.size() == 0 || mCheckLG == null && mLGFileTransfer == null) {
-            Log.i(TAG, "START Initializing check thread");
-//            mHandler.obtainMessage(Opptransfer.BLUETOOTH_RETRY_FOR_CONNECTION).sendToTarget();
-//        //}
-    }
+
 
     @Override
     public void onCreate() {
@@ -681,7 +606,7 @@ public class MessengerService extends Service {
     /**
      * Show a notification while this service is running.
      */
-    private void showNotification() {
+    public void showNotification() {
         // In this sample, we'll use the same text for the ticker and the expanded notification
         CharSequence text = "Printer Service Loading"; //getText(R.string.remote_service_started);
 
@@ -707,7 +632,7 @@ public class MessengerService extends Service {
      * Specify text to show, i.e. to indicate connected
      * or not connected.
      */
-    private void showNotification(String title, String aText) {
+    public void showNotification(String title, String aText) {
         // In this sample, we'll use the same text for the ticker and the expanded notification
         CharSequence text = (CharSequence) aText; //getText(R.string.remote_service_started);
 
