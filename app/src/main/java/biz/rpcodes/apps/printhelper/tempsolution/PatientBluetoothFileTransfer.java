@@ -48,6 +48,16 @@ public class PatientBluetoothFileTransfer {
 			mtrans.stopSession();
 			mtrans.cancelTransfer();
 		}
+		if (mSocket != null){
+			try {
+				Thread.sleep(500);
+				mSocket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	/**
@@ -386,9 +396,14 @@ public class PatientBluetoothFileTransfer {
 
 		private void markConnectionFailed(BluetoothSocket s) {
 			try {
-				if(s != null)s.close();
+				if(s != null) {
+					Thread.sleep(500);
+					s.close();
+				}
 			} catch (IOException e) {
-
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
 			mHandler.obtainMessage(OpptransferExistingSocket.BLUETOOTH_SOCKET_CONNECT_FAIL).sendToTarget();
 			return;

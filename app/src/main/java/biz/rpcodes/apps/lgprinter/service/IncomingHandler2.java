@@ -21,7 +21,7 @@ import biz.rpcodes.apps.printhelper.tempsolution.PatientBluetoothFileTransfer;
  */
 public class IncomingHandler2 extends Handler {
     private static final int PRINT_TIMEOUT_TRANSFER_MS = 60000;
-    private static final int RETRY_FOR_BT_SOCKET_INTERVAL_MS = 10000;
+    private static final int RETRY_FOR_BT_SOCKET_INTERVAL_MS = 5000;
 
     private final WeakReference<MessengerService> mService;
 
@@ -247,6 +247,7 @@ public class IncomingHandler2 extends Handler {
                 case Opptransfer.BLUETOOTH_SEND_FAIL:
                     debug.addString("BLUETOOTH_SEND_FAIL");
                     Log.i(TAG, "BLUETOOTH SEND FAIL");
+                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
                     sendPrintJobStatus();
@@ -256,6 +257,7 @@ public class IncomingHandler2 extends Handler {
                 case Opptransfer.BLUETOOTH_SEND_COMPLETE:
                     debug.addString("BLUETOOTH_SEND_COMPLETE");
                     Log.i(TAG, "BLUETOOTH SEND COMPLETE");
+                    this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = true;
                     sendPrintJobStatus();
