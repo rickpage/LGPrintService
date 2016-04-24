@@ -183,6 +183,11 @@ public class IncomingHandler2 extends Handler {
                     }
                     mIsConnected = true;
 
+                    // This means we were NOT connected during print
+                    // request
+                    if (mIsPrinting){
+                        svc().mPatientLGFileTransfer.startPrintingFilename(mFileName);
+                    }
                     sendPrinterStatusMessage();
                     break;
 

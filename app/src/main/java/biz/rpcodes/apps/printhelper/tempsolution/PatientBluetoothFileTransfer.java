@@ -113,6 +113,8 @@ public class PatientBluetoothFileTransfer {
                     , mSocket);
 			mtrans.start();
 		} catch (Exception e) {
+			mHandler.obtainMessage(Opptransfer.BLUETOOTH_SEND_FAIL)
+				.sendToTarget();
 			e.printStackTrace();
 		}
 	}
