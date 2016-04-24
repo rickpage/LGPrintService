@@ -17,6 +17,7 @@ import com.lge.pocketphoto.bluetooth.Opptransfer;
 import com.lge.pocketphoto.bluetooth.PrintPairedSearcher;
 
 import java.io.IOException;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -274,6 +275,7 @@ public class PatientBluetoothFileTransfer {
 					try {
 						Thread.sleep(500);
 						btSocket.close();
+
 						Thread.sleep(500);
 					} catch (Exception e) {
 

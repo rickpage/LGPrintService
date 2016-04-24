@@ -67,13 +67,13 @@ public class MessengerService extends Service {
     public MessengerService(){
         mHandler = new IncomingHandler2(this);
         mMessenger = new Messenger(mHandler);
-        Log.i(TAG, "Constructor Messenger Service");
+        Log.i(TAG, "Constructor Messenger Service " + this);
     }
 
     public ArrayList<Messenger> getClients(){
         if ( mClients.size() == 0 && mIsInit) {
             Log.i(TAG, ", 0 clients using this messenger service");
-
+            this.destroyPatientLGThread();
         }
         return mClients;
     }
@@ -610,6 +610,11 @@ public class MessengerService extends Service {
         Log.i(TAG, "onBind called");
 
         return mMessenger.getBinder();
+    }
+    @Override
+    public void onRebind(Intent intent) {
+        Log.i(TAG, "onREBind called");
+
     }
 
     @Override
