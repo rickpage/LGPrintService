@@ -54,11 +54,18 @@ public class BluetoothOppRfcommTransport implements ObexTransport {
         this.mSocket = socket;
     }
 
-    public void close() throws IOException {    	
-        mSocket.close();
+    public void close() throws IOException {
+
         try {
 			Thread.sleep(500);
-		} catch (InterruptedException e) {
+            if (mSocket != null) {
+
+                mSocket.getInputStream().close();
+                mSocket.getOutputStream().close();
+                mSocket.close();
+            }
+
+        } catch (InterruptedException e) {
 			// e.printStackTrace();
             Log.v("BTOppRfcTx", "mSocket.close(); thread.sleep: " + e.getMessage());
 		}

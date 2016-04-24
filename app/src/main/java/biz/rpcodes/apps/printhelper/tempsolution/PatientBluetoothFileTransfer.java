@@ -207,10 +207,12 @@ public class PatientBluetoothFileTransfer {
 	{
 		// TODO: Join if interrupt isnt enough
 		try {
-			mConnectThread.join();
-			// Closes the BT socket
-			mConnectThread.interrupt();
-			mConnectThread = null;
+			if (null != mConnectThread) {
+				mConnectThread.join();
+				// Closes the BT socket
+				mConnectThread.interrupt();
+				mConnectThread = null;
+			}
 		} catch (InterruptedException e) {
 			Log.i("PatientTransfer", "Interrupted connection");
 		//	e.printStackTrace();
@@ -405,7 +407,7 @@ public class PatientBluetoothFileTransfer {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			mHandler.obtainMessage(OpptransferExistingSocket.BLUETOOTH_SOCKET_CONNECT_FAIL).sendToTarget();
+			mHandler.obtainMessage(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL).sendToTarget();
 			return;
 		}
 	};

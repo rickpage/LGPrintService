@@ -18,6 +18,7 @@ package biz.rpcodes.apps.lgprinter.service;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -72,7 +73,7 @@ public class MessengerService extends Service {
     public ArrayList<Messenger> getClients(){
         if ( mClients.size() == 0 && mIsInit) {
             Log.i(TAG, ", 0 clients using this messenger service");
-            this.stopSelf();
+
         }
         return mClients;
     }
@@ -615,7 +616,7 @@ public class MessengerService extends Service {
     public boolean onUnbind(Intent intent){
         Log.i(TAG, "onUnBind called: Cancelling LG print threads.");
         stopCheckLGThread();
-
+        destroyPatientLGThread();
         destroyPrintThread();
 
         return false;

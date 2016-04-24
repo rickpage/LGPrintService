@@ -1,5 +1,6 @@
 package biz.rpcodes.apps.lgprinter.service;
 
+import android.bluetooth.BluetoothAdapter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -85,9 +86,11 @@ public class IncomingHandler2 extends Handler {
                         // Display a notification about us starting.
                         svc().showNotification();
 
-                        // Kick off a retry to start getting the socket
-                        this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET)
-                                .sendToTarget();
+                        if (!svc().mIsInit) {
+                            // Kick off a retry to start getting the socket
+                            this.obtainMessage(Opptransfer.RETRY_FOR_BT_SOCKET)
+                                    .sendToTarget();
+                        }
                         svc().mIsInit = true;
                     }
                     break;
@@ -187,6 +190,17 @@ public class IncomingHandler2 extends Handler {
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
                     debug.addString("BLUETOOTH_CONNECT_FAIL " + msg.arg1);
                     Log.i(TAG, "BLUETOOTH_CONNECT_FAIL " + msg.arg1);
+                    // msg arg1 is 0 when no socket or bad state
+                    // If we have never connected, doesn't matter
+                    // If we HAVE connected, we could have a stale connection
+//                    if ( msg.arg1 == 0 && mIsConnected) {
+//                        // This means we have pairing, but the socket
+//                        // died somehow; normally, we can reconnect from this,
+//                        // but sometimes we cant
+//                        Log.i(TAG, "ENABLE DISABLE");
+//                        BluetoothAdapter.getDefaultAdapter().disable();
+//                        BluetoothAdapter.getDefaultAdapter().enable();
+//                    }
                     if (mIsConnected || mFirstTime) {
                         mFirstTime = false;
                         svc().showNotification("Printer Unavailable", "Issue connecting to printer");
@@ -248,6 +262,7 @@ public class IncomingHandler2 extends Handler {
                     debug.addString("BLUETOOTH_SEND_FAIL");
                     Log.i(TAG, "BLUETOOTH SEND FAIL");
                     this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
+
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
                     sendPrintJobStatus();
