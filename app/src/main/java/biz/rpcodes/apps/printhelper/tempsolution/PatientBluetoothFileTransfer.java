@@ -183,11 +183,11 @@ public class PatientBluetoothFileTransfer {
 
 		else
 			{
-				mHandler.obtainMessage(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL).sendToTarget();
+				mHandler.obtainMessage(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL, 11111, 11111).sendToTarget();
 			}
 		} else {
 
-			mHandler.obtainMessage(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL).sendToTarget();
+			mHandler.obtainMessage(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL, 22222, 22222 ).sendToTarget();
 		}
 	}
 

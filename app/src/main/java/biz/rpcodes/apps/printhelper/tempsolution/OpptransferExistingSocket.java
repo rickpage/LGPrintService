@@ -116,8 +116,9 @@ public class OpptransferExistingSocket extends AsyncTask<Void, Integer, Void> im
 	 */
 	private void makeConnectionObjects(){
 		if ( mSocket == null) {
-			mSessionHandler.obtainMessage(RFCOMM_ERROR)
-					.sendToTarget();
+			// Don do this, because we should have a socket already
+			//mSessionHandler.obtainMessage(RFCOMM_ERROR)
+			//		.sendToTarget();
 			return;
 		}
 		BluetoothOppRfcommTransport transport;

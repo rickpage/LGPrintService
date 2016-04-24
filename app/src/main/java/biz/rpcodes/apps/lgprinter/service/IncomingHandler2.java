@@ -33,6 +33,7 @@ public class IncomingHandler2 extends Handler {
     private boolean mIsLastPrintJobSuccessful;
     private int mErrorCode = PrintIntentConstants.NO_ERROR_CODE;
     private String mFileName;
+    private boolean mFirstTime = true;
 
     public IncomingHandler2(MessengerService s){
         mIsConnected = false;
@@ -152,6 +153,10 @@ public class IncomingHandler2 extends Handler {
                             this.removeMessages(Opptransfer.BLUETOOTH_SEND_FAIL);
                             this.removeMessages(Opptransfer.BLUETOOTH_SEND_COMPLETE);
                             this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
+                            this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
+
+
+
                             // send the file
                             Uri imgUri = Uri.parse("file://" + mFileName);
                             svc().mPatientLGFileTransfer.startPrintingURI(imgUri);
@@ -168,16 +173,29 @@ public class IncomingHandler2 extends Handler {
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECTED:
                     debug.addString("BLUETOOTH_SOCKET_CONNECTED");
                     Log.i(TAG, "BLUETOOTH_SOCKET_CONNECTED");
+                    if (false == mIsConnected || mFirstTime) {
+                        mFirstTime = false;
+                        // SHow notification
+                        svc().showNotification("Printer Available", "The printer is within range.");
+                    }
                     mIsConnected = true;
+
+                    sendPrinterStatusMessage();
                     break;
 
 
                 case Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL:
-                    debug.addString("BLUETOOTH_CONNECT_FAIL");
-                    Log.i(TAG, "BLUETOOTH_CONNECT_FAIL");
+                    debug.addString("BLUETOOTH_CONNECT_FAIL " + msg.arg1);
+                    Log.i(TAG, "BLUETOOTH_CONNECT_FAIL " + msg.arg1);
+                    if (mIsConnected || mFirstTime) {
+                        mFirstTime = false;
+                        svc().showNotification("Printer Unavailable", "Issue connecting to printer");
+                    }
                     mIsConnected = false;
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
+
+                    sendPrinterStatusMessage();
                     break;
 
                 case Opptransfer.RETRY_FOR_BT_SOCKET:
