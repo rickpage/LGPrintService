@@ -367,9 +367,11 @@ public class IncomingHandler2 extends Handler {
                             ,  mErrorCode
 
                     );
-                    Bundle b = new Bundle();
-                    b.putString("error", getFailState());
-                    m.setData(b);
+                    if ( !mIsLastPrintJobSuccessful) {
+                        Bundle b = new Bundle();
+                        b.putString("error", getFailState());
+                        m.setData(b);
+                    }
                     // Increases counter, we only can send so many
                     LGPrintHelper.setDebugString(m, debug.getDebugMessage());
                     svc().getClients().get(i).send(m);
@@ -439,6 +441,7 @@ public class IncomingHandler2 extends Handler {
 
         }
 
+        errStr += " ERROR";
         if ( null != errStr)
             debug.addString("Error Code: " + errStr);
 
