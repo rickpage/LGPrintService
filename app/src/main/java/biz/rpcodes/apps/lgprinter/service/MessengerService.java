@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import biz.rpcodes.apps.lgprinter.LGPrintHelper;
 import biz.rpcodes.apps.lgprinter.PrintIntentConstants;
 import biz.rpcodes.apps.lgprinter.R;
-import biz.rpcodes.apps.printhelper.tempsolution.CheckLGConnection;
 import biz.rpcodes.apps.printhelper.tempsolution.PatientBluetoothFileTransfer;
 
 //BEGIN_INCLUDE(service)
@@ -156,7 +155,7 @@ public class MessengerService extends Service {
         mNM.cancel(NOTIFICATION_ID);
         // Set the info for the views that show in the notification panel.
         Notification notification = new Notification.Builder(this)
-                .setSmallIcon(R.drawable.ic_launcher)  // the status icon
+                .setSmallIcon(R.drawable.prntdisconnected)  // the status icon
                 .setTicker(text)  // the status text
                 .setWhen(System.currentTimeMillis())  // the time stamp
                 .setContentTitle("Searching for Printer")  // the label of the entry
@@ -175,14 +174,14 @@ public class MessengerService extends Service {
      * Specify text to show, i.e. to indicate connected
      * or not connected.
      */
-    public void showNotification(String title, String aText) {
+    private void showNotification(String title, String aText, int drawId) {
         // In this sample, we'll use the same text for the ticker and the expanded notification
         CharSequence text = (CharSequence) aText; //getText(R.string.remote_service_started);
 
         mNM.cancel(NOTIFICATION_ID);
         // Set the info for the views that show in the notification panel.
         Notification notification = new Notification.Builder(this)
-                .setSmallIcon(R.drawable.ic_launcher)  // the status icon
+                .setSmallIcon(drawId)  // the status icon
                 .setTicker(text)  // the status text
                 .setWhen(System.currentTimeMillis())  // the time stamp
                 .setContentTitle(title)  // the label of the entry
@@ -197,5 +196,19 @@ public class MessengerService extends Service {
     }
 
 
+    public void showConnectedNotification() {
+        showNotification("Printer Available"
+                , "The printer is within range."
+                , R.drawable.prntconnected);
+    }
+
+    public void showDisconnectedNotification() {
+
+        showNotification("Printer Unavailable"
+                , "Issue connecting to printer"
+                , R.drawable.prntdisconnected);
+
+    }
+    }
 }
 //END_INCLUDE(service)

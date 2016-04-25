@@ -183,7 +183,7 @@ public class IncomingHandler2 extends Handler {
                     if (false == mIsConnected || mFirstTime) {
                         mFirstTime = false;
                         // SHow notification
-                        svc().showNotification("Printer Available", "The printer is within range.");
+                        svc().showConnectedNotification();
                     }
                     mIsConnected = true;
 
@@ -212,7 +212,7 @@ public class IncomingHandler2 extends Handler {
 //                    }
                     if (mIsConnected || mFirstTime) {
                         mFirstTime = false;
-                        svc().showNotification("Printer Unavailable", "Issue connecting to printer");
+                        svc().showDisconnectedNotification();
                     }
                     mIsConnected = false;
                     mIsPrinting = false;
