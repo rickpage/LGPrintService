@@ -338,9 +338,6 @@ public class IncomingHandler2 extends Handler {
                                 : PrintIntentConstants.UNAVAILABLE
                         , mErrorCode
                 );
-                Bundle b = new Bundle();
-                b.putString("error", getFailState());
-                m.setData(b);
                 // Increases counter, we only can send so many
                 LGPrintHelper.setDebugString(m, debug.getDebugMessage());
 
