@@ -209,6 +209,6 @@ public class MessengerService extends Service {
                 , R.drawable.prntdisconnected);
 
     }
-    }
+    
 }
 //END_INCLUDE(service)
