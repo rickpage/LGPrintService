@@ -385,7 +385,7 @@ public class IncomingHandler2 extends Handler {
     public String getFailState()
     {
 
-        String errStr = null; //"SUCCESS";
+        String errStr = "";
 
         int error = mErrorCode;
 
