@@ -1,6 +1,5 @@
 package biz.rpcodes.apps.lgprinter.service;
 
-import android.bluetooth.BluetoothAdapter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -21,8 +20,15 @@ import biz.rpcodes.apps.printhelper.tempsolution.PatientBluetoothFileTransfer;
  * Created by page on 4/22/16.
  */
 public class IncomingHandler2 extends Handler {
-    private static final int PRINT_TIMEOUT_TRANSFER_MS = 60000;
-    private static final int RETRY_FOR_BT_SOCKET_INTERVAL_MS = 5000;
+    // If we dont get send fail or complete by this time, bail
+    private static final int PRINT_TIMEOUT_TRANSFER_MS = 20000;
+    // After send compolete, send timeout with SUCCESS_TIMEOUT
+    private static final int PRINT_SUCCESS_TIMEOUT_MS = 60000;
+
+    private static final int RETRY_FOR_BT_SOCKET_INTERVAL_MS = 4000;
+    private static final int FAILED_TIMEOUT = 11;
+    private static final int SUCCESS_TIMEOUT = 22;
+
 
     private final WeakReference<MessengerService> mService;
 
@@ -117,8 +123,6 @@ public class IncomingHandler2 extends Handler {
             // These are split ON PURPOSE: Register and Print handling should be separate!
             //
 
-            // set error code
-            setFailState(msg);
 
             // debug info
             debug.addString(craftDebugInfo());
@@ -158,14 +162,14 @@ public class IncomingHandler2 extends Handler {
                             this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
                             this.removeMessages(Opptransfer.BLUETOOTH_SOCKET_CONNECT_FAIL);
 
-
-
                             // send the file
                             Uri imgUri = Uri.parse("file://" + mFileName);
                             svc().mPatientLGFileTransfer.startPrintingURI(imgUri);
 
                             // set a timeout, in case the printer shuts off and we don't catch it
-                            this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_TIMEOUT), PRINT_TIMEOUT_TRANSFER_MS);
+                            this.sendMessageDelayed(
+                                    obtainMessage(Opptransfer.BLUETOOTH_SEND_TIMEOUT
+                                , FAILED_TIMEOUT, 0), PRINT_TIMEOUT_TRANSFER_MS);
                         }
                     }
                     break;
@@ -256,17 +260,27 @@ public class IncomingHandler2 extends Handler {
                     debug.addString("BLUETOOTH_SEND_TIMEOUT");
                     Log.i(TAG, "BLUETOOTH SEND TIMEOUT");
                     // We get here because printing took too long
-                    // TODO: We can automatically retry?
-                    // So mark failed
+                    // OR because we suucceeded but we were waiting patiently
                     mIsPrinting = false;
-                    mIsLastPrintJobSuccessful = false;
+
+                    if ( msg.arg1 == SUCCESS_TIMEOUT) {
+                        // Success
+                        mIsLastPrintJobSuccessful = true;
+                    } else {
+                        // Failure
+                        mIsLastPrintJobSuccessful = false;
+                    }
                     sendPrintJobStatus();
                     break;
 
                 case Opptransfer.BLUETOOTH_SEND_FAIL:
                     debug.addString("BLUETOOTH_SEND_FAIL");
                     Log.i(TAG, "BLUETOOTH SEND FAIL");
+
                     this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
+
+                    // set error code
+                    setFailState(msg);
 
                     mIsPrinting = false;
                     mIsLastPrintJobSuccessful = false;
@@ -277,10 +291,14 @@ public class IncomingHandler2 extends Handler {
                 case Opptransfer.BLUETOOTH_SEND_COMPLETE:
                     debug.addString("BLUETOOTH_SEND_COMPLETE");
                     Log.i(TAG, "BLUETOOTH SEND COMPLETE");
+                    // Remove
                     this.removeMessages(Opptransfer.BLUETOOTH_SEND_TIMEOUT);
-                    mIsPrinting = false;
-                    mIsLastPrintJobSuccessful = true;
-                    sendPrintJobStatus();
+//                    mIsPrinting = false;
+//                    mIsLastPrintJobSuccessful = true;
+//                    sendPrintJobStatus();
+                    // send timeout with success code
+                    this.sendMessageDelayed(obtainMessage(Opptransfer.BLUETOOTH_SEND_TIMEOUT
+                            , SUCCESS_TIMEOUT, 0), PRINT_SUCCESS_TIMEOUT_MS);
                     break;
 
                 default:
